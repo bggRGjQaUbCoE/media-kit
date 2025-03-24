@@ -116,6 +116,7 @@ class SubtitleViewState extends State<SubtitleView> {
                         widget.configuration.style.copyWith(
                           color: null,
                           background: null,
+                          backgroundColor: null,
                           foreground: Paint()
                             ..color = Colors.black
                             ..style = PaintingStyle.stroke
