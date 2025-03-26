@@ -109,7 +109,7 @@ class SubtitleViewState extends State<SubtitleView> {
         return Material(
           color: Colors.transparent,
           child: AnimatedContainer(
-            padding: padding,
+            padding: widget.configuration.padding,
             duration: duration,
             alignment: Alignment.bottomCenter,
             child: widget.configuration.strokeWidth != null
