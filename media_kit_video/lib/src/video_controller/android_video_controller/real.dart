@@ -106,6 +106,9 @@ class AndroidVideoController extends PlatformVideoController {
     platform.onUnloadHooks.add(onUnloadHook);
     videoParamsSubscription = player.stream.videoParams.listen(
       (event) => lock.synchronized(() async {
+        // This setup is here within Dart (unlike [NativeVideoController]) primarily for two reasons:
+        // * We use --wid & do not run own render loop.
+        // * Native listener/callback within JNI would be redundantly complex.
         if ([0, null].contains(event.dw) || [0, null].contains(event.dh)) {
           return;
         }
@@ -138,10 +141,6 @@ class AndroidVideoController extends PlatformVideoController {
           width.toDouble(),
           height.toDouble(),
         );
-
-        if (!waitUntilFirstFrameRenderedCompleter.isCompleted) {
-          waitUntilFirstFrameRenderedCompleter.complete();
-        }
       }),
     );
   }

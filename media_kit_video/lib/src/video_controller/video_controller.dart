@@ -77,10 +77,6 @@ class VideoController {
     player.platform?.isVideoControllerAttached = true;
 
     () async {
-      final completer = Completer();
-      WidgetsBinding.instance.addPostFrameCallback((_) => completer.complete());
-      await completer.future;
-
       try {
         if (NativeVideoController.supported) {
           final result = await NativeVideoController.create(
