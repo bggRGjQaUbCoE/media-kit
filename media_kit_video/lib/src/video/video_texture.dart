@@ -17,7 +17,6 @@ import 'package:media_kit_video/src/utils/dispose_safe_notifer.dart';
 import 'package:media_kit_video/src/utils/wakelock.dart';
 import 'package:media_kit_video/src/video_view_parameters.dart';
 import 'package:media_kit_video/src/video_controller/video_controller.dart';
-import 'package:media_kit_video/src/video_controller/platform_video_controller.dart';
 
 /// {@template video}
 ///
@@ -214,18 +213,18 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
     VideoControlsBuilder? controls,
     SubtitleViewConfiguration? subtitleViewConfiguration,
   }) {
-    _videoViewParametersNotifier.value =
-        _videoViewParametersNotifier.value.copyWith(
-      width: width,
-      height: height,
-      fit: fit,
-      fill: fill,
-      alignment: alignment,
-      aspectRatio: aspectRatio,
-      filterQuality: filterQuality,
-      controls: controls,
-      subtitleViewConfiguration: subtitleViewConfiguration,
-    );
+    _videoViewParametersNotifier.value = _videoViewParametersNotifier.value
+        .copyWith(
+          width: width,
+          height: height,
+          fit: fit,
+          fill: fill,
+          alignment: alignment,
+          aspectRatio: aspectRatio,
+          filterQuality: filterQuality,
+          controls: controls,
+          subtitleViewConfiguration: subtitleViewConfiguration,
+        );
   }
 
   @override
@@ -233,26 +232,26 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
     devicePixelRatio = MediaQuery.devicePixelRatioOf(context);
     _videoViewParametersNotifier =
         media_kit_video_controls.VideoStateInheritedWidget.maybeOf(
-              context,
-            )?.videoViewParametersNotifier ??
-            ValueNotifier<VideoViewParameters>(
-              VideoViewParameters(
-                width: widget.width,
-                height: widget.height,
-                fit: widget.fit,
-                fill: widget.fill,
-                alignment: widget.alignment,
-                aspectRatio: widget.aspectRatio,
-                filterQuality: widget.filterQuality,
-                controls: widget.controls,
-                subtitleViewConfiguration: widget.subtitleViewConfiguration,
-              ),
-            );
+          context,
+        )?.videoViewParametersNotifier ??
+        ValueNotifier<VideoViewParameters>(
+          VideoViewParameters(
+            width: widget.width,
+            height: widget.height,
+            fit: widget.fit,
+            fill: widget.fill,
+            alignment: widget.alignment,
+            aspectRatio: widget.aspectRatio,
+            filterQuality: widget.filterQuality,
+            controls: widget.controls,
+            subtitleViewConfiguration: widget.subtitleViewConfiguration,
+          ),
+        );
     _disposeNotifiers =
         media_kit_video_controls.VideoStateInheritedWidget.maybeOf(
-              context,
-            )?.disposeNotifiers ??
-            true;
+          context,
+        )?.disposeNotifiers ??
+        true;
     super.didChangeDependencies();
   }
 
@@ -263,8 +262,9 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
     final currentParams = _videoViewParametersNotifier.value;
 
     final newParams = VideoViewParameters(
-      width:
-          widget.width != oldWidget.width ? widget.width : currentParams.width,
+      width: widget.width != oldWidget.width
+          ? widget.width
+          : currentParams.width,
       height: widget.height != oldWidget.height
           ? widget.height
           : currentParams.height,
@@ -282,7 +282,8 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
       controls: widget.controls != oldWidget.controls
           ? widget.controls
           : currentParams.controls,
-      subtitleViewConfiguration: widget.subtitleViewConfiguration !=
+      subtitleViewConfiguration:
+          widget.subtitleViewConfiguration !=
               oldWidget.subtitleViewConfiguration
           ? widget.subtitleViewConfiguration
           : currentParams.subtitleViewConfiguration,
@@ -323,31 +324,17 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
     // --------------------------------------------------
     // Do not show the video frame until width & height are available.
     // Since [ValueNotifier<Rect?>] inside [VideoController] only gets updated by the render loop (i.e. it will not fire when video's width & height are not available etc.), it's important to handle this separately here.
-    _subscriptions.addAll(
-      [
-        widget.controller.player.stream.width.listen(
-          (value) {
-            _width = value;
-            final visible = (_width ?? 0) > 0 && (_height ?? 0) > 0;
-            if (_visible != visible) {
-              setState(() {
-                _visible = visible;
-              });
-            }
-          },
-        ),
-        widget.controller.player.stream.height.listen(
-          (value) {
-            _height = value;
-            final visible = (_width ?? 0) > 0 && (_height ?? 0) > 0;
-            if (_visible != visible) {
-              setState(() {
-                _visible = visible;
-              });
-            }
-          },
-        ),
-      ],
+    _subscriptions.add(
+      widget.controller.player.stream.size.listen((value) {
+        _width = value.$1;
+        _height = value.$2;
+        final visible = (_width ?? 0) > 0 && (_height ?? 0) > 0;
+        if (_visible != visible) {
+          setState(() {
+            _visible = visible;
+          });
+        }
+      }),
     );
     // --------------------------------------------------
     if (widget.wakelock) {
@@ -355,15 +342,13 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
         _wakelock.enable();
       }
       _subscriptions.add(
-        widget.controller.player.stream.playing.listen(
-          (value) {
-            if (value) {
-              _wakelock.enable();
-            } else {
-              _wakelock.disable();
-            }
-          },
-        ),
+        widget.controller.player.stream.playing.listen((value) {
+          if (value) {
+            _wakelock.enable();
+          } else {
+            _wakelock.disable();
+          }
+        }),
       );
     }
   }
@@ -387,8 +372,8 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
   void refreshView() {}
 
   static final mediaQueryData = MediaQueryData(
-      gestureSettings:
-          DeviceGestureSettings(touchSlop: Platform.isIOS ? 9 : 4));
+    gestureSettings: DeviceGestureSettings(touchSlop: Platform.isIOS ? 9 : 4),
+  );
 
   late double devicePixelRatio;
 
@@ -431,65 +416,52 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
                         child: FittedBox(
                           fit: videoViewParameters.fit,
                           alignment: videoViewParameters.alignment,
-                          child:
-                              ValueListenableBuilder<PlatformVideoController?>(
-                            valueListenable: widget.controller.notifier,
-                            builder: (context, notifier, _) => notifier == null
-                                ? const SizedBox.shrink()
-                                : ValueListenableBuilder<int?>(
-                                    valueListenable: notifier.id,
-                                    builder: (context, id, _) {
-                                      return ValueListenableBuilder<Rect?>(
-                                        valueListenable: notifier.rect,
-                                        builder: (context, rect, _) {
-                                          if (id != null &&
-                                              rect != null &&
-                                              _visible) {
-                                            return SizedBox(
-                                              // Apply aspect ratio if provided.
-                                              width: videoViewParameters
-                                                          .aspectRatio ==
-                                                      null
-                                                  ? rect.width /
-                                                      devicePixelRatio
-                                                  : rect.height /
-                                                      devicePixelRatio *
-                                                      videoViewParameters
-                                                          .aspectRatio!,
-                                              height: rect.height /
-                                                  devicePixelRatio,
-                                              child: Stack(
-                                                children: [
-                                                  const SizedBox(),
-                                                  Positioned.fill(
-                                                    child: Texture(
-                                                      textureId: id,
-                                                      filterQuality:
-                                                          videoViewParameters
-                                                              .filterQuality,
-                                                    ),
-                                                  ),
-                                                  // Keep the |Texture| hidden before the first frame renders. In native implementation, if no default frame size is passed (through VideoController), a starting 1 pixel sized texture/surface is created to initialize the render context & check for H/W support.
-                                                  // This is then resized based on the video dimensions & accordingly texture ID, texture, EGLDisplay, EGLSurface etc. (depending upon platform) are also changed. Just don't show that 1 pixel texture to the UI.
-                                                  // NOTE: Unmounting |Texture| causes the |MarkTextureFrameAvailable| to not do anything on GNU/Linux.
-                                                  if (rect.width <= 1.0 &&
-                                                      rect.height <= 1.0)
-                                                    Positioned.fill(
-                                                      child: Container(
-                                                        color:
-                                                            videoViewParameters
-                                                                .fill,
-                                                      ),
-                                                    ),
-                                                ],
+                          child: ValueListenableBuilder<int?>(
+                            valueListenable: widget.controller.id,
+                            builder: (context, id, _) {
+                              return ValueListenableBuilder<Rect?>(
+                                valueListenable: widget.controller.rect,
+                                builder: (context, rect, _) {
+                                  if (id != null && rect != null && _visible) {
+                                    return SizedBox(
+                                      // Apply aspect ratio if provided.
+                                      width:
+                                          videoViewParameters.aspectRatio ==
+                                              null
+                                          ? rect.width / devicePixelRatio
+                                          : rect.height /
+                                                devicePixelRatio *
+                                                videoViewParameters
+                                                    .aspectRatio!,
+                                      height: rect.height / devicePixelRatio,
+                                      child: Stack(
+                                        children: [
+                                          const SizedBox(),
+                                          Positioned.fill(
+                                            child: Texture(
+                                              textureId: id,
+                                              filterQuality: videoViewParameters
+                                                  .filterQuality,
+                                            ),
+                                          ),
+                                          // Keep the |Texture| hidden before the first frame renders. In native implementation, if no default frame size is passed (through VideoController), a starting 1 pixel sized texture/surface is created to initialize the render context & check for H/W support.
+                                          // This is then resized based on the video dimensions & accordingly texture ID, texture, EGLDisplay, EGLSurface etc. (depending upon platform) are also changed. Just don't show that 1 pixel texture to the UI.
+                                          // NOTE: Unmounting |Texture| causes the |MarkTextureFrameAvailable| to not do anything on GNU/Linux.
+                                          if (rect.width <= 1.0 &&
+                                              rect.height <= 1.0)
+                                            Positioned.fill(
+                                              child: Container(
+                                                color: videoViewParameters.fill,
                                               ),
-                                            );
-                                          }
-                                          return const SizedBox.shrink();
-                                        },
-                                      );
-                                    },
-                                  ),
+                                            ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  return const SizedBox.shrink();
+                                },
+                              );
+                            },
                           ),
                         ),
                       ),
@@ -503,13 +475,10 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
                 //   Positioned.fill(
                 //     child: videoViewParameters.controls!.call(this),
                 //   ),
-
                 if (widget.gestureWidget != null)
                   Positioned.fill(child: widget.gestureWidget!),
 
-                if (videoViewParameters.subtitleViewConfiguration.visible &&
-                    !(widget.controller.player.platform?.configuration.libass ??
-                        false))
+                if (videoViewParameters.subtitleViewConfiguration.visible)
                   Positioned.fill(
                     child: IgnorePointer(
                       ignoring: !widget.enableDragSubtitle,
@@ -522,9 +491,10 @@ class VideoState extends State<Video> with WidgetsBindingObserver {
                         onUpdatePadding: (padding) {
                           widget.onUpdatePadding?.call(padding);
                           update(
-                              subtitleViewConfiguration: videoViewParameters
-                                  .subtitleViewConfiguration
-                                  .copyWith(padding: padding));
+                            subtitleViewConfiguration: videoViewParameters
+                                .subtitleViewConfiguration
+                                .copyWith(padding: padding),
+                          );
                         },
                       ),
                     ),
@@ -546,25 +516,20 @@ typedef VideoControlsBuilder = Widget Function(VideoState state);
 Future<void> defaultEnterNativeFullscreen() async {
   try {
     if (Platform.isAndroid || Platform.isIOS) {
-      await Future.wait(
-        [
-          SystemChrome.setEnabledSystemUIMode(
-            SystemUiMode.immersiveSticky,
-            overlays: [],
-          ),
-          SystemChrome.setPreferredOrientations(
-            [
-              DeviceOrientation.landscapeLeft,
-              DeviceOrientation.landscapeRight,
-            ],
-          ),
-        ],
-      );
+      await Future.wait([
+        SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.immersiveSticky,
+          overlays: [],
+        ),
+        SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight,
+        ]),
+      ]);
     } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      await const MethodChannel('com.alexmercerind/media_kit_video')
-          .invokeMethod(
-        'Utils.EnterNativeFullscreen',
-      );
+      await const MethodChannel(
+        'com.alexmercerind/media_kit_video',
+      ).invokeMethod('Utils.EnterNativeFullscreen');
     }
   } catch (exception, stacktrace) {
     debugPrint(exception.toString());
@@ -576,26 +541,22 @@ Future<void> defaultEnterNativeFullscreen() async {
 Future<void> defaultExitNativeFullscreen() async {
   try {
     if (Platform.isAndroid || Platform.isIOS) {
-      await Future.wait(
-        [
-          SystemChrome.setEnabledSystemUIMode(
-            SystemUiMode.manual,
-            overlays: SystemUiOverlay.values,
-          ),
-          SystemChrome.setPreferredOrientations(
-            [],
-          ),
-        ],
-      );
+      await Future.wait([
+        SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: SystemUiOverlay.values,
+        ),
+        SystemChrome.setPreferredOrientations([]),
+      ]);
     } else if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-      await const MethodChannel('com.alexmercerind/media_kit_video')
-          .invokeMethod(
-        'Utils.ExitNativeFullscreen',
-      );
+      await const MethodChannel(
+        'com.alexmercerind/media_kit_video',
+      ).invokeMethod('Utils.ExitNativeFullscreen');
     }
   } catch (exception, stacktrace) {
     debugPrint(exception.toString());
     debugPrint(stacktrace.toString());
   }
 }
+
 // --------------------------------------------------

@@ -6,6 +6,7 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:media_kit/media_kit.dart';
 
 import 'package:media_kit_video/src/video_controller/video_controller.dart';
 
@@ -27,24 +28,24 @@ class SubtitleView extends StatefulWidget {
 
   /// {@macro subtitle_view}
   const SubtitleView({
-    Key? key,
+    super.key,
     required this.controller,
     required this.configuration,
     this.enableDragSubtitle = false,
     this.onUpdatePadding,
-  }) : super(key: key);
+  });
 
   @override
   SubtitleViewState createState() => SubtitleViewState();
 }
 
 class SubtitleViewState extends State<SubtitleView> {
-  late List<String> subtitle = widget.controller.player.state.subtitle;
+  late Subtitle subtitle = widget.controller.player.state.subtitle;
   late EdgeInsets padding = widget.configuration.padding;
   late Duration duration = const Duration(milliseconds: 100);
 
   // The [StreamSubscription] to listen to the subtitle changes.
-  StreamSubscription<List<String>>? subscription;
+  StreamSubscription<Subtitle>? subscription;
 
   // The reference width for calculating the visible text scale factor.
   static const kTextScaleFactorReferenceWidth = 1920.0;
@@ -94,10 +95,7 @@ class SubtitleViewState extends State<SubtitleView> {
   @override
   Widget build(BuildContext context) {
     Widget text(TextStyle style) => Text(
-          [
-            for (final line in subtitle)
-              if (line.trim().isNotEmpty) line.trim(),
-          ].join('\n'),
+          subtitle.toString(),
           style: style,
           textAlign: widget.configuration.textAlign,
           textScaler: const TextScaler.linear(1),

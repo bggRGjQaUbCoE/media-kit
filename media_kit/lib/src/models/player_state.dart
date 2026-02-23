@@ -4,6 +4,7 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 
+import 'package:media_kit/src/models/subtitle.dart';
 import 'package:media_kit/src/models/track.dart';
 import 'package:media_kit/src/models/playlist.dart';
 import 'package:media_kit/src/models/audio_device.dart';
@@ -78,13 +79,13 @@ class PlayerState {
   final Tracks tracks;
 
   /// Currently playing video's width.
-  final int? width;
+  final int width;
 
   /// Currently playing video's height.
-  final int? height;
+  final int height;
 
   /// Currently displayed subtitle.
-  final List<String> subtitle;
+  final Subtitle subtitle;
 
   /// {@macro player_state}
   const PlayerState({
@@ -106,11 +107,12 @@ class PlayerState {
     this.audioDevices = const [AudioDevice('auto', '')],
     this.track = const Track(),
     this.tracks = const Tracks(),
-    this.width,
-    this.height,
-    this.subtitle = const ['', ''],
+    this.width = 0,
+    this.height = 0,
+    this.subtitle = const Subtitle.raw(),
   });
 
+  // TODO: make state not final
   PlayerState copyWith({
     Playlist? playlist,
     bool? playing,
@@ -132,7 +134,7 @@ class PlayerState {
     Tracks? tracks,
     int? width,
     int? height,
-    List<String>? subtitle,
+    Subtitle? subtitle,
   }) {
     return PlayerState(
       playlist: playlist ?? this.playlist,

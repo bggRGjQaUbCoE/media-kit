@@ -1379,11 +1379,6 @@ class MaterialDesktopVolumeButtonState
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    subscription ??= controller(context).player.stream.volume.listen((event) {
-      setState(() {
-        volume = event;
-      });
-    });
   }
 
   @override

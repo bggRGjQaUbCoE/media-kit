@@ -4,6 +4,7 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 
+import 'package:media_kit/src/models/subtitle.dart';
 import 'package:test/test.dart';
 import 'package:collection/collection.dart';
 
@@ -152,7 +153,7 @@ void main() {
         isNull,
       );
       expect(
-        ListEquality().equals(state.subtitle, ['', '']),
+        state.subtitle == const Subtitle.raw(),
         isTrue,
       );
     },

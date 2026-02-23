@@ -6,6 +6,7 @@
 
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:media_kit/src/models/subtitle.dart';
 import 'package:meta/meta.dart';
 import 'package:collection/collection.dart';
 
@@ -42,100 +43,51 @@ abstract class PlatformPlayer {
   late PlayerState state = PlayerState();
 
   /// Current state of the player available as listenable [Stream]s.
-  late PlayerStream stream = PlayerStream(
-    playlistController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    playingController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    completedController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    positionController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    durationController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    volumeController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    rateController.stream.distinct((previous, current) => previous == current),
-    pitchController.stream.distinct((previous, current) => previous == current),
-    bufferingController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    bufferController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    playlistModeController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
+  late final PlayerStream stream = PlayerStream(
+    playlistController.stream.distinct(),
+    playingController.stream.distinct(),
+    completedController.stream.distinct(),
+    positionController.stream.distinct(),
+    durationController.stream.distinct(),
+    bufferingController.stream.distinct(),
+    bufferController.stream.distinct(),
     /* AUDIO-PARAMS STREAM SHOULD NOT BE DISTINCT */
     audioParamsController.stream,
     /* VIDEO-PARAMS STREAM SHOULD NOT BE DISTINCT */
     videoParamsController.stream,
-    audioBitrateController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    audioDeviceController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    audioDevicesController.stream.distinct(
-      (previous, current) => const ListEquality().equals(previous, current),
-    ),
-    trackController.stream.distinct((previous, current) => previous == current),
-    tracksController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    widthController.stream.distinct((previous, current) => previous == current),
-    heightController.stream.distinct(
-      (previous, current) => previous == current,
-    ),
-    subtitleController.stream.distinct(
-      (previous, current) => const ListEquality().equals(previous, current),
-    ),
-    logController.stream.distinct((previous, current) => previous == current),
+    audioDeviceController.stream.distinct(),
+    audioDevicesController.stream.distinct(const ListEquality().equals),
+    trackController.stream.distinct(),
+    tracksController.stream.distinct(),
+    sizeController.stream.distinct(),
+    subtitleController.stream.distinct(),
+    logController.stream.distinct(),
     /* ERROR STREAM SHOULD NOT BE DISTINCT */
     errorController.stream,
   );
 
   @mustCallSuper
-  Future<void> dispose() async {
-    await Future.wait([
+  Future<void> dispose() {
+    return Future.wait([
       playlistController.close(),
       playingController.close(),
       completedController.close(),
       positionController.close(),
       durationController.close(),
-      volumeController.close(),
-      rateController.close(),
-      pitchController.close(),
       bufferingController.close(),
       bufferController.close(),
-      playlistModeController.close(),
       audioParamsController.close(),
       videoParamsController.close(),
-      audioBitrateController.close(),
       audioDeviceController.close(),
       audioDevicesController.close(),
       trackController.close(),
       tracksController.close(),
-      widthController.close(),
-      heightController.close(),
+      sizeController.close(),
       subtitleController.close(),
       logController.close(),
       errorController.close(),
+      ...release.map((i) => i()),
     ]);
-    for (final callback in release) {
-      try {
-        await callback.call();
-      } catch (exception, stacktrace) {
-        print(exception.toString());
-        print(stacktrace.toString());
-      }
-    }
   }
 
   Future<void> open(Playable playable, {bool play = true}) {
@@ -232,11 +184,13 @@ abstract class PlatformPlayer {
     );
   }
 
-  Future<Uint8List?> screenshot({String? format = 'image/jpeg'}) async {
+  Future<Uint8List?> screenshot({
+    ScreenshotFormat format = ScreenshotFormat.jpeg,
+  }) async {
     throw UnimplementedError('[PlatformPlayer.screenshot] is not implemented');
   }
 
-  Future<int> get handle {
+  int get handle {
     throw UnimplementedError('[PlatformPlayer.handle] is not implemented');
   }
 
@@ -261,28 +215,12 @@ abstract class PlatformPlayer {
       StreamController.broadcast();
 
   @protected
-  final StreamController<double> volumeController =
-      StreamController.broadcast();
-
-  @protected
-  final StreamController<double> rateController =
-      StreamController<double>.broadcast();
-
-  @protected
-  final StreamController<double> pitchController =
-      StreamController<double>.broadcast();
-
-  @protected
   final StreamController<bool> bufferingController =
       StreamController<bool>.broadcast();
 
   @protected
   final StreamController<Duration> bufferController =
       StreamController<Duration>.broadcast();
-
-  @protected
-  final StreamController<PlaylistMode> playlistModeController =
-      StreamController<PlaylistMode>.broadcast();
 
   @protected
   final StreamController<PlayerLog> logController =
@@ -301,10 +239,6 @@ abstract class PlatformPlayer {
       StreamController<VideoParams>.broadcast();
 
   @protected
-  final StreamController<double?> audioBitrateController =
-      StreamController<double?>.broadcast();
-
-  @protected
   final StreamController<AudioDevice> audioDeviceController =
       StreamController<AudioDevice>.broadcast();
 
@@ -321,16 +255,12 @@ abstract class PlatformPlayer {
       StreamController<Tracks>.broadcast();
 
   @protected
-  final StreamController<int?> widthController =
-      StreamController<int?>.broadcast();
+  final StreamController<(int, int)> sizeController =
+      StreamController<(int, int)>.broadcast();
 
   @protected
-  final StreamController<int?> heightController =
-      StreamController<int?>.broadcast();
-
-  @protected
-  final StreamController<List<String>> subtitleController =
-      StreamController<List<String>>.broadcast();
+  final StreamController<Subtitle> subtitleController =
+      StreamController<Subtitle>.broadcast();
 
   // --------------------------------------------------
 
@@ -339,22 +269,6 @@ abstract class PlatformPlayer {
 
   /// [Future<void>] to wait for initialization of this instance.
   Future<void> get waitForPlayerInitialization => completer.future;
-
-  // --------------------------------------------------
-
-  /// [bool] for signaling [VideoController] (from `package:media_kit_video`) initialization.
-  bool isVideoControllerAttached = false;
-
-  /// [Completer] for signaling [VideoController] (from `package:media_kit_video`) initialization.
-  final Completer<void> videoControllerCompleter = Completer<void>();
-
-  /// [Future<void>] to wait for [VideoController] (from `package:media_kit_video`) initialization.
-  Future<void> get waitForVideoControllerInitializationIfAttached {
-    if (isVideoControllerAttached) {
-      return videoControllerCompleter.future;
-    }
-    return Future.value(null);
-  }
 
   // --------------------------------------------------
 
@@ -402,23 +316,6 @@ class PlayerConfiguration {
   /// Default: `null`.
   final void Function()? ready;
 
-  /// Whether [Player] must be started in muted state.
-  ///
-  /// Default: `false`.
-  final bool muted;
-
-  /// Whether to use [libass](https://github.com/libass/libass) based subtitle rendering for native backend.
-  ///
-  /// By default, subtitles rendering is Flutter `Widget` based.
-  ///
-  /// On Android, this option requires [libassAndroidFont] to be set.
-  final bool libass;
-
-  /// Asset name of the `.ttf` font file to be used for [libass](https://github.com/libass/libass) based subtitle rendering on Android.
-  ///
-  /// e.g. `assets/fonts/subtitle.ttf`
-  final String? libassAndroidFont;
-
   /// Sets the log level on native backend.
   /// Default: `none`.
   final MPVLogLevel logLevel;
@@ -444,9 +341,6 @@ class PlayerConfiguration {
     this.pitch = false,
     this.title = 'package:media_kit',
     this.ready,
-    this.muted = false,
-    this.libass = false,
-    this.libassAndroidFont,
     this.logLevel = MPVLogLevel.error,
     this.bufferSize = 32 * 1024 * 1024,
     this.protocolWhitelist = const [
@@ -498,3 +392,5 @@ enum MPVLogLevel {
   /// Extremely noisy.
   trace,
 }
+
+enum ScreenshotFormat { none, jpeg, png }

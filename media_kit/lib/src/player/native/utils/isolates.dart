@@ -171,7 +171,5 @@ List<R> _buildSuccessResponse<R>(R result) {
 /// always null. We do this so we have a way to know if an error was one we
 /// caught or one thrown by the library code.
 List<dynamic> _buildErrorResponse(Object error, StackTrace stack) {
-  return List<dynamic>.filled(3, null)
-    ..[0] = error
-    ..[1] = stack;
+  return [error, stack, null];
 }

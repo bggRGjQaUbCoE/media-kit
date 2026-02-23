@@ -1,8 +1,7 @@
-import 'dart:io';
 import 'dart:async';
-import 'dart:convert';
 import 'dart:collection';
 import 'dart:typed_data';
+import 'package:media_kit/src/models/subtitle.dart';
 import 'package:test/test.dart';
 import 'package:collection/collection.dart';
 
@@ -31,23 +30,10 @@ void main() {
     NativePlayer.test = true;
   });
   test(
-    'player-platform',
-    () {
-      final player = Player();
-      expect(
-        player.platform,
-        isA<NativePlayer>(),
-      );
-
-      addTearDown(player.dispose);
-    },
-    skip: false,
-  );
-  test(
     'player-wait-for-player-initialization',
     () async {
-      final player = Player();
-      final future = player.platform?.waitForPlayerInitialization;
+      final player = await Player.create();
+      final future = player.waitForPlayerInitialization;
       expect(future, isNotNull);
       expect(future, completes);
 
@@ -57,23 +43,11 @@ void main() {
     },
   );
   test(
-    'player-handle',
-    () {
-      final player = Player();
-      expect(
-        player.handle,
-        completes,
-      );
-
-      addTearDown(player.dispose);
-    },
-  );
-  test(
     'player-configuration-ready-callback',
-    () {
+    () async {
       final expectReady = expectAsync0(() {});
 
-      final player = Player(
+      final player = await Player.create(
         configuration: PlayerConfiguration(
           ready: expectReady,
         ),
@@ -85,7 +59,7 @@ void main() {
   test(
     'player-open-playable-media',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         player.stream.playlist,
@@ -141,7 +115,7 @@ void main() {
   test(
     'player-open-playable-playlist',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -220,7 +194,7 @@ void main() {
   test(
     'player-open-playable-media-play-false',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         player.stream.playlist,
@@ -264,7 +238,7 @@ void main() {
   test(
     'player-open-playable-playlist-play-false',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -306,7 +280,7 @@ void main() {
   test(
     'player-open-playable-media-play-false-play',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         player.stream.playlist,
@@ -369,7 +343,7 @@ void main() {
   test(
     'player-open-playable-playlist-play-false-play',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -446,49 +420,9 @@ void main() {
     timeout: Timeout(const Duration(minutes: 2)),
   );
   test(
-    'player-open-playable-media-memory',
-    () async {
-      final player = Player(
-        configuration: PlayerConfiguration(
-          logLevel: MPVLogLevel.info,
-          title: '',
-        ),
-      );
-
-      player.stream.position.listen((e) => print(e));
-
-      final expectPosition = expectAsync1(
-        (value) {
-          print(value);
-          expect(value, isA<Duration>());
-        },
-        count: 1,
-        max: -1,
-      );
-
-      player.stream.position.listen((event) async {
-        if (event > Duration.zero) {
-          print(event);
-          expectPosition(event);
-        }
-      });
-
-      final playable = await Media.memory(sources.bytes[0]);
-
-      await player.open(playable);
-
-      // VOLUNTARY DELAY.
-      await Future.delayed(const Duration(seconds: 10));
-
-      await player.dispose();
-    },
-    // TODO: Can't test on web.
-    skip: false,
-  );
-  test(
     'player-open-playable-media-extras',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final expectExtras = expectAsync1(
         (value) {
@@ -533,7 +467,7 @@ void main() {
   test(
     'player-open-playable-playlist-extras',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final expectExtras = expectAsync2(
         (value, i) {
@@ -587,7 +521,7 @@ void main() {
   test(
     'player-open-playable-media-start-end',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final expectStart = expectAsync1(
         (value) {
@@ -655,7 +589,7 @@ void main() {
   test(
     'player-open-playable-playlist-start-end',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final expectStart = expectAsync2(
         (value, i) {
@@ -740,187 +674,13 @@ void main() {
     timeout: Timeout(const Duration(minutes: 1, seconds: 30)),
   );
   test(
-    'player-open-playable-media-http-headers',
-    () async {
-      final player = Player();
-
-      final address = '127.0.0.1';
-      final port = 8081;
-
-      final expectHTTPHeaders = expectAsync1(
-        (value) {
-          print(value);
-          expect(value, isA<HttpHeaders>());
-          final headers = value as HttpHeaders;
-
-          expect(headers.value('X-Foo'), 'Bar');
-          expect(headers.value('X-Baz'), 'Qux');
-        },
-      );
-
-      final expectPlayable = expectAsync1(
-        (value) {
-          print(value);
-          expect(value, isA<Playlist>());
-          final playable = value as Playlist;
-          expect(
-            ListEquality().equals(
-              playable.medias,
-              [
-                Media(
-                  'http://$address:$port/0',
-                  httpHeaders: {
-                    'X-Foo': 'Bar',
-                    'X-Baz': 'Qux',
-                  },
-                ),
-              ],
-            ),
-            true,
-          );
-        },
-      );
-
-      final completed = HashSet<int>();
-
-      final socket = await ServerSocket.bind(address, port);
-      final server = HttpServer.listenOn(socket);
-      server.listen(
-        (e) async {
-          final i = int.parse(e.uri.path.split('/').last);
-          if (!completed.contains(i)) {
-            completed.add(i);
-            expectHTTPHeaders(e.headers);
-          }
-          final path = sources.platform[i];
-          e.response.headers.add('Content-Type', 'video/mp4');
-          e.response.headers.add('Accept-Ranges', 'bytes');
-          File(path).openRead().pipe(e.response);
-        },
-      );
-
-      player.stream.playlist.listen((e) {
-        if (e.index >= 0) {
-          expectPlayable(e);
-        }
-      });
-
-      await player.open(
-        Media(
-          'http://$address:$port/0',
-          httpHeaders: {
-            'X-Foo': 'Bar',
-            'X-Baz': 'Qux',
-          },
-        ),
-      );
-
-      await Future.delayed(const Duration(seconds: 30));
-
-      await player.dispose();
-      await server.close();
-    },
-    timeout: Timeout(const Duration(minutes: 1)),
-    skip: false,
-  );
-  test(
-    'player-open-playable-playlist-http-headers',
-    () async {
-      final player = Player();
-
-      final address = '127.0.0.1';
-      final port = 8082;
-
-      final expectHTTPHeaders = expectAsync2(
-        (value, i) {
-          print(value);
-          expect(value, isA<HttpHeaders>());
-          final headers = value as HttpHeaders;
-          expect(headers.value('X-Foo'), '$i');
-        },
-        count: sources.platform.length,
-      );
-      final expectPlayable = expectAsync2(
-        (value, i) {
-          print(value);
-          expect(value, isA<Playlist>());
-          final playable = value as Playlist;
-          expect(playable.index, i);
-          expect(
-            ListEquality().equals(
-              playable.medias,
-              [
-                for (int i = 0; i < sources.platform.length; i++)
-                  Media(
-                    'http://$address:$port/$i',
-                    httpHeaders: {
-                      'X-Foo': '$i',
-                    },
-                  ),
-              ],
-            ),
-            true,
-          );
-        },
-        count: sources.platform.length,
-      );
-
-      final completed = HashSet<int>();
-
-      final socket = await ServerSocket.bind(address, port);
-      final server = HttpServer.listenOn(socket);
-      server.listen(
-        (e) async {
-          final i = int.parse(e.uri.path.split('/').last);
-          if (!completed.contains(i)) {
-            completed.add(i);
-            expectHTTPHeaders(e.headers, i);
-          }
-          final data = sources.bytes[i];
-          e.response.headers.contentLength = data.length;
-          e.response.headers.contentType = ContentType('video', 'mp4');
-          e.response.add(data);
-          await e.response.flush();
-          await e.response.close();
-        },
-      );
-
-      player.stream.playlist.listen((e) {
-        if (e.index >= 0) {
-          expectPlayable(e, e.index);
-        }
-      });
-
-      await player.open(
-        Playlist(
-          [
-            for (int i = 0; i < sources.platform.length; i++)
-              Media(
-                'http://$address:$port/$i',
-                httpHeaders: {
-                  'X-Foo': '$i',
-                },
-              ),
-          ],
-        ),
-      );
-
-      await Future.delayed(const Duration(minutes: 1));
-
-      await player.dispose();
-      await server.close();
-    },
-    timeout: Timeout(const Duration(minutes: 1, seconds: 30)),
-    skip: false,
-  );
-  test(
     'player-play-after-completed',
     () async {
       // Only applicable for PlaylistMode.none.
 
       final completer = Completer();
 
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         player.stream.playing,
@@ -998,7 +758,7 @@ void main() {
     () async {
       final completer = Completer();
 
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         player.stream.playing,
@@ -1075,7 +835,7 @@ void main() {
   test(
     'player-open-while-playing',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         player.stream.playlist,
@@ -1131,7 +891,7 @@ void main() {
   test(
     'player-open-playable-playlist-non-zero-index',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1158,7 +918,7 @@ void main() {
   test(
     'player-audio-devices',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final expectAudioDevices = expectAsync1(
         (value) {
@@ -1183,7 +943,7 @@ void main() {
   test(
     'player-set-audio-device',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final devices = await player.stream.audioDevices.first;
 
@@ -1222,7 +982,7 @@ void main() {
   test(
     'player-set-audio-device',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         player.setAudioDevice(AudioDevice.auto()),
@@ -1234,81 +994,9 @@ void main() {
     skip: true,
   );
   test(
-    'player-set-volume',
-    () async {
-      final player = Player();
-
-      final expectVolume = expectAsync2(
-        (volume, i) {
-          print(volume);
-          expect(volume, isA<double>());
-          expect(i, isA<int>());
-          volume = volume as double;
-          i = i as int;
-          expect(
-            /* This round() is solely needed because floating-point arithmetic on JavaScript is retarded. */
-            volume.round(),
-            equals(i),
-          );
-        },
-        count: 100,
-      );
-
-      int? index;
-
-      player.stream.volume.listen((event) {
-        expectVolume(event, index);
-      });
-
-      for (int i = 0; i < 100; i++) {
-        index = i;
-
-        await player.setVolume(i.toDouble());
-
-        await Future.delayed(const Duration(milliseconds: 100));
-      }
-
-      addTearDown(player.dispose);
-    },
-  );
-  test(
-    'player-set-rate',
-    () async {
-      final player = Player();
-
-      final test = List.generate(10, (index) => 0.25 * (index + 1));
-
-      final expectRate = expectAsync2(
-        (rate, i) {
-          print(rate);
-          expect(rate, isA<double>());
-          expect(i, isA<int>());
-          expect(rate, equals(test[i as int]));
-        },
-        count: test.length,
-      );
-
-      int? index;
-
-      player.stream.rate.listen((event) {
-        expectRate(event, index);
-      });
-
-      for (int i = 0; i < test.length; i++) {
-        index = i;
-
-        await player.setRate(test[i]);
-
-        await Future.delayed(const Duration(milliseconds: 20));
-      }
-
-      addTearDown(player.dispose);
-    },
-  );
-  test(
     'player-set-pitch-disabled',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       expect(player.setPitch(1.0), throwsArgumentError);
 
@@ -1319,42 +1007,7 @@ void main() {
   test(
     'player-set-pitch-enabled',
     () async {
-      final player = Player(configuration: PlayerConfiguration(pitch: true));
-
-      final test = List.generate(10, (index) => 0.25 * (index + 1));
-
-      final expectPitch = expectAsync2(
-        (pitch, i) {
-          print(pitch);
-          expect(pitch, isA<double>());
-          expect(i, isA<int>());
-          expect(pitch, equals(test[i as int]));
-        },
-        count: test.length,
-      );
-
-      int? index;
-
-      player.stream.pitch.listen((event) {
-        expectPitch(event, index);
-      });
-
-      for (int i = 0; i < test.length; i++) {
-        index = i;
-
-        await player.setPitch(test[i]);
-
-        await Future.delayed(const Duration(milliseconds: 20));
-      }
-
-      addTearDown(player.dispose);
-    },
-    skip: false,
-  );
-  test(
-    'player-set-pitch-enabled',
-    () async {
-      final player = Player(configuration: PlayerConfiguration(pitch: true));
+      final player = await Player.create(configuration: PlayerConfiguration(pitch: true));
 
       expect(
         player.setPitch(1.0),
@@ -1366,31 +1019,9 @@ void main() {
     skip: true,
   );
   test(
-    'player-set-playlist-mode',
-    () async {
-      final player = Player();
-
-      expect(
-        player.stream.playlistMode,
-        emitsInOrder(
-          [
-            ...PlaylistMode.values,
-          ],
-        ),
-      );
-
-      for (final value in PlaylistMode.values) {
-        await player.setPlaylistMode(value);
-      }
-
-      addTearDown(player.dispose);
-    },
-    timeout: Timeout(const Duration(minutes: 1)),
-  );
-  test(
     'player-jump',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1434,7 +1065,7 @@ void main() {
   test(
     'player-move',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1471,7 +1102,7 @@ void main() {
   test(
     'player-index-transitions-playlist-mode-none',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1504,7 +1135,7 @@ void main() {
   test(
     'player-index-transitions-playlist-mode-single',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1536,7 +1167,7 @@ void main() {
   test(
     'player-index-transitions-playlist-mode-loop',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1574,7 +1205,7 @@ void main() {
   test(
     'player-next-playlist-mode-none',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1614,7 +1245,7 @@ void main() {
   test(
     'player-next-playlist-mode-single',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1654,7 +1285,7 @@ void main() {
   test(
     'player-next-playlist-mode-loop',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1699,7 +1330,7 @@ void main() {
   test(
     'player-previous-playlist-mode-none',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1746,7 +1377,7 @@ void main() {
   test(
     'player-previous-playlist-mode-single',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1793,7 +1424,7 @@ void main() {
   test(
     'player-previous-playlist-mode-loop',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1842,7 +1473,7 @@ void main() {
   test(
     'player-add',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         player.stream.playlist,
@@ -1892,7 +1523,7 @@ void main() {
   test(
     'player-remove-before-current-index',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -1950,7 +1581,7 @@ void main() {
   test(
     'player-remove-after-current-index',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -2001,7 +1632,7 @@ void main() {
   test(
     'player-remove-current-index',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -2053,7 +1684,7 @@ void main() {
   test(
     'player-remove-current-index-stop-playlist-mode-none',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -2111,7 +1742,7 @@ void main() {
   test(
     'player-remove-current-index-stop-playlist-mode-single',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -2169,7 +1800,7 @@ void main() {
   test(
     'player-remove-current-index-stop-playlist-mode-loop',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -2228,7 +1859,7 @@ void main() {
   test(
     'player-set-rate-negative',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       expect(
         () async => await player.setRate(-1.0),
@@ -2241,7 +1872,7 @@ void main() {
   test(
     'player-set-pitch-negative',
     () async {
-      final player = Player(configuration: PlayerConfiguration(pitch: true));
+      final player = await Player.create(configuration: PlayerConfiguration(pitch: true));
 
       expect(
         () async => await player.setPitch(-1.0),
@@ -2255,7 +1886,7 @@ void main() {
   test(
     'player-set-pitch-negative',
     () async {
-      final player = Player(configuration: PlayerConfiguration(pitch: true));
+      final player = await Player.create(configuration: PlayerConfiguration(pitch: true));
 
       expect(
         () async => await player.setPitch(-1.0),
@@ -2269,7 +1900,7 @@ void main() {
   test(
     'player-set-shuffle',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -2325,7 +1956,7 @@ void main() {
   test(
     'player-set-shuffle-consecutive',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final playable = Playlist(
         [
@@ -2389,7 +2020,7 @@ void main() {
   test(
     'player-buffering-file',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.buffering.listen((e) => print(e));
 
@@ -2424,7 +2055,7 @@ void main() {
   test(
     'player-buffering-network',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.buffering.listen((e) => print(e));
 
@@ -2458,7 +2089,7 @@ void main() {
   test(
     'player-buffering-file-play-false',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.buffering.listen((e) => print(e));
 
@@ -2493,7 +2124,7 @@ void main() {
   test(
     'player-buffering-network-play-false',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.buffering.listen((e) => print(e));
 
@@ -2527,7 +2158,7 @@ void main() {
   test(
     'player-buffering-upon-seek',
     () async {
-      final player = Player();
+      final player = await Player.create();
       player.stream.buffering.listen((e) => print(e));
 
       expect(
@@ -2582,7 +2213,7 @@ void main() {
     () async {
       // When pausing in buffering state, the player must exit buffering state once resumed.
       // https://github.com/media-kit/media-kit/issues/367
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.buffering.listen((e) => print(e));
 
@@ -2653,7 +2284,7 @@ void main() {
   test(
     'player-buffering-playlist',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.playlist.listen((e) => print(e.index));
       player.stream.completed.listen((e) => print('completed: $e'));
@@ -2738,7 +2369,7 @@ void main() {
   test(
     'player-stop',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       await player.open(Media(sources.platform[0]));
 
@@ -2767,14 +2398,8 @@ void main() {
       expect(player.state.width, equals(null));
       expect(player.state.height, equals(null));
       expect(
-        ListEquality().equals(
-          player.state.subtitle,
-          [
-            '',
-            '',
-          ],
-        ),
-        equals(true),
+        player.state.subtitle,
+        equals(const Subtitle.raw()),
       );
 
       // VOLUNTARY DELAY.
@@ -2788,7 +2413,7 @@ void main() {
   test(
     'player-stop-open',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       await player.open(Media(sources.platform[0]));
 
@@ -2828,7 +2453,7 @@ void main() {
   test(
     'player-screenshot',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       await player.open(Media(sources.platform[0]));
 
@@ -2852,22 +2477,22 @@ void main() {
   test(
     'player-screenshot-format',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       await player.open(Media(sources.platform[0]));
 
       // VOLUNTARY DELAY.
       await Future.delayed(const Duration(seconds: 5));
 
-      final jpeg = await player.screenshot(format: 'image/jpeg');
+      final jpeg = await player.screenshot(format: ScreenshotFormat.jpeg);
       expect(jpeg, isNotNull);
       expect(jpeg, isA<Uint8List>());
       expect(jpeg?.length ?? 0, greaterThan(0));
-      final png = await player.screenshot(format: 'image/png');
+      final png = await player.screenshot(format: ScreenshotFormat.png);
       expect(png, isNotNull);
       expect(png, isA<Uint8List>());
       expect(png?.length ?? 0, greaterThan(0));
-      final pixels = await player.screenshot(format: null);
+      final pixels = await player.screenshot(format: ScreenshotFormat.none);
       expect(pixels, isNotNull);
       expect(pixels, isA<Uint8List>());
       expect(pixels?.length ?? 0, greaterThan(0));
@@ -2883,7 +2508,7 @@ void main() {
   test(
     'player-screenshot',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       await player.open(Media(sources.platform[0]));
 
@@ -2906,7 +2531,7 @@ void main() {
   test(
     'player-screenshot-format',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       await player.open(Media(sources.platform[0]));
 
@@ -2914,7 +2539,7 @@ void main() {
       await Future.delayed(const Duration(seconds: 5));
 
       // CORS
-      final screenshot = await player.screenshot(format: 'image/png');
+      final screenshot = await player.screenshot(format: ScreenshotFormat.png);
 
       expect(screenshot, isNull);
 
@@ -2927,35 +2552,9 @@ void main() {
     skip: true,
   );
   test(
-    'player-screenshot-argument-error',
-    () async {
-      final player = Player();
-
-      await player.open(Media(sources.platform[0]));
-
-      // VOLUNTARY DELAY.
-      await Future.delayed(const Duration(seconds: 5));
-
-      expect(
-        () async => await player.screenshot(format: 'abc'),
-        throwsArgumentError,
-      );
-      expect(
-        () async => await player.screenshot(format: 'xyz'),
-        throwsArgumentError,
-      );
-
-      // VOLUNTARY DELAY.
-      await Future.delayed(const Duration(seconds: 5));
-
-      await player.dispose();
-    },
-    timeout: Timeout(const Duration(minutes: 2)),
-  );
-  test(
     'player-subtitle',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.tracks.listen((event) {
         print(event);
@@ -3119,7 +2718,7 @@ void main() {
   test(
     'player-tracks-playlist',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.tracks.listen((event) {
         print(event);
@@ -3212,7 +2811,7 @@ void main() {
   test(
     'player-set-subtitle-track-external-uri',
     () async {
-      final player = Player(
+      final player = await Player.create(
         configuration: const PlayerConfiguration(
           logLevel: MPVLogLevel.v,
         ),
@@ -3487,7 +3086,7 @@ UPC
 Simply for <u>everyone</u>
 ''';
 
-      final player = Player();
+      final player = await Player.create();
 
       player.stream.track.listen((event) {
         print(event);
@@ -3720,7 +3319,7 @@ Simply for <u>everyone</u>
   test(
     'player-web-player-hls',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final expectPosition = expectAsync1(
         (value) {
@@ -3759,7 +3358,7 @@ Simply for <u>everyone</u>
   test(
     'player-subtitle-reset-open',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final subtitle = '''WEBVTT FILE
 
@@ -3832,7 +3431,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
   test(
     'player-subtitle-reset-set-subtitle-track-subtitle-track-no',
     () async {
-      final player = Player();
+      final player = await Player.create();
 
       final subtitle = '''WEBVTT FILE
 
@@ -3901,104 +3500,6 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
       await player.dispose();
     },
     skip: kSkipFlakyTests,
-  );
-  test(
-    'player-native-player-set-property',
-    () async {
-      final player = Player();
-      final property = 'volume';
-
-      expect(player.platform, isA<NativePlayer>());
-
-      expect(
-        player.stream.volume,
-        emits(equals(69.0)),
-      );
-
-      await (player.platform as dynamic).setProperty(property, '69.0');
-
-      // VOLUNTARY DELAY.
-      await Future.delayed(const Duration(seconds: 5));
-
-      await player.dispose();
-    },
-    skip: false,
-  );
-  test(
-    'player-native-player-observe-property',
-    () async {
-      final player = Player();
-      final property = 'demuxer-cache-state';
-
-      expect(player.platform, isA<NativePlayer>());
-
-      final expectListener = expectAsync1(
-        (value) {
-          print(value);
-          expect(value, isA<String>());
-          final data = value as String;
-          expect(() => json.decode(data), returnsNormally);
-        },
-        count: 1,
-        max: -1,
-      );
-
-      await (player.platform as dynamic).observeProperty(
-        property,
-        (data) async {
-          // The listener must be invoked.
-          expectListener(data);
-        },
-      );
-      expect(
-        (player.platform as dynamic).observed.containsKey(property),
-        isTrue,
-      );
-
-      await player.open(Media(sources.platform[0]));
-
-      // VOLUNTARY DELAY.
-      await Future.delayed(const Duration(seconds: 5));
-
-      await (player.platform as dynamic).unobserveProperty(property);
-      expect(
-        (player.platform as dynamic).observed.containsKey(property),
-        isFalse,
-      );
-
-      // VOLUNTARY DELAY.
-      await Future.delayed(const Duration(seconds: 5));
-
-      // Subsequent calls must throw [ArgumentError].
-      expect(
-        (player.platform as dynamic).observeProperty(
-          property,
-          (data) async {},
-        ),
-        completes,
-      );
-      expect(
-        (player.platform as dynamic).observeProperty(
-          property,
-          (data) async {},
-        ),
-        throwsArgumentError,
-      );
-      expect(
-        (player.platform as dynamic).unobserveProperty(property),
-        completes,
-      );
-      expect(
-        (player.platform as dynamic).unobserveProperty(property),
-        throwsArgumentError,
-      );
-
-      // VOLUNTARY DELAY.
-      await Future.delayed(const Duration(seconds: 5));
-
-      await player.dispose();
-    },
-    skip: false,
   );
 }
 

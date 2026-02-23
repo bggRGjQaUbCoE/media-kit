@@ -5,7 +5,7 @@
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 import 'dart:io';
 import 'package:path/path.dart';
-import 'package:uuid/uuid.dart';
+import 'package:uuid/v4.dart';
 
 import 'package:media_kit/src/player/native/utils/android_helper.dart';
 
@@ -32,7 +32,7 @@ abstract class TempFile {
     if (directory == null) {
       throw UnsupportedError('[TempFile.create] is unsupported');
     }
-    final file = File(join(directory, Uuid().v4()));
+    final file = File(join(directory, const UuidV4().generate()));
     await file.create();
     return file;
   }

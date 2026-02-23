@@ -9,6 +9,7 @@ import 'dart:isolate';
 import 'dart:collection';
 
 import 'package:media_kit/ffi/ffi.dart';
+import 'package:media_kit/src/player/native/core/native_library.dart';
 import 'package:media_kit/src/values.dart';
 import 'package:media_kit/generated/libmpv/bindings.dart';
 
@@ -19,13 +20,11 @@ import 'package:media_kit/generated/libmpv/bindings.dart';
 abstract class InitializerIsolate {
   /// Creates & returns initialized [Pointer<mpv_handle>] whose event loop is running on separate [Isolate].
   static Future<Pointer<mpv_handle>> create(
-    String path,
-    Future<void> Function(Pointer<mpv_event> event)? callback,
+    MPV mpv,
+    FutureOr<void> Function(Pointer<mpv_event> event)? callback,
     Map<String, String> options,
   ) async {
     if (callback == null) {
-      // No requirement for separate isolate.
-      final mpv = MPV(DynamicLibrary.open(path));
       // Creating [mpv_handle].
       final handle = mpv.mpv_create();
 
@@ -58,6 +57,7 @@ abstract class InitializerIsolate {
         _mainloop,
         receiver.sendPort,
       );
+      final path = NativeLibrary.path;
       receiver.listen(
         (message) async {
           // Receiving [SendPort] of the [ReceivePort] inside the separate [Isolate] to:

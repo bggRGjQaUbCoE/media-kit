@@ -5,7 +5,6 @@
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 import 'dart:io';
 import 'package:path/path.dart' as path;
-import 'package:safe_local_storage/safe_local_storage.dart';
 
 import 'package:media_kit/src/player/native/utils/android_asset_loader.dart';
 
@@ -75,7 +74,7 @@ class AssetLoader {
         '$_kAssetScheme is not supported on ${Platform.operatingSystem}',
       );
     }
-    if (!File(asset).existsSync_()) {
+    if (!File(asset).existsSync()) {
       throw Exception('Unable to load asset: $asset');
     }
     return asset;

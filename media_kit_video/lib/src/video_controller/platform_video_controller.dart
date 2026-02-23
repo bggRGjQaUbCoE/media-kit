@@ -4,28 +4,29 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 import 'dart:async';
+import 'dart:io';
 import 'package:flutter/widgets.dart';
 
 import 'package:media_kit/media_kit.dart';
-
-import 'package:media_kit_video/src/video_controller/video_controller.dart';
+import 'package:media_kit_video/src/video_controller/android_video_controller/android_video_controller.dart';
+import 'package:media_kit_video/src/video_controller/native_video_controller/native_video_controller.dart';
 
 /// {@template platform_video_controller}
 ///
 /// PlatformVideoController
 /// -----------------------
 ///
-/// This class provides the interface for platform specific [VideoController] implementations.
+/// This class provides the interface for platform specific [PlatformVideoController] implementations.
 /// The platform specific implementations are expected to implement the methods accordingly.
 ///
-/// The subclasses are then used in composition with the [VideoController] class, based on the platform the application is running on.
+/// The subclasses are then used in composition with the [PlatformVideoController] class, based on the platform the application is running on.
 ///
 /// {@endtemplate}
 abstract class PlatformVideoController {
   /// The [Player] instance associated with this instance.
   final Player player;
 
-  /// User defined configuration for [VideoController].
+  /// User defined configuration for [PlatformVideoController].
   final VideoControllerConfiguration configuration;
 
   /// Texture ID of the video output, registered with Flutter engine by the native implementation.
@@ -35,10 +36,7 @@ abstract class PlatformVideoController {
   final ValueNotifier<Rect?> rect = ValueNotifier<Rect?>(null);
 
   /// {@macro platform_video_controller}
-  PlatformVideoController(
-    this.player,
-    this.configuration,
-  );
+  PlatformVideoController(this.player, this.configuration);
 
   /// Sets the required size of the video output.
   /// This may yield substantial performance improvements if a small [width] & [height] is specified.
@@ -46,10 +44,7 @@ abstract class PlatformVideoController {
   /// Remember:
   /// * “Premature optimization is the root of all evil”
   /// * “With great power comes great responsibility”
-  Future<void> setSize({
-    int? width,
-    int? height,
-  });
+  Future<void>? setSize({int? width, int? height});
 
   /// A [Future] that completes when the first video frame has been rendered.
   Future<void> get waitUntilFirstFrameRendered =>
@@ -59,13 +54,27 @@ abstract class PlatformVideoController {
   /// Use [waitUntilFirstFrameRendered] to wait for the first frame to be rendered.
   @protected
   final waitUntilFirstFrameRenderedCompleter = Completer<void>();
+
+  static Future<PlatformVideoController> create(
+    Player player, {
+    VideoControllerConfiguration configuration =
+        const VideoControllerConfiguration(),
+  }) {
+    return (NativeVideoController.supported
+        ? NativeVideoController.create
+        : AndroidVideoController.supported
+        ? AndroidVideoController.create
+        : throw UnimplementedError(
+            '[VideoController] is unavailable for ${Platform.operatingSystem}.',
+          ))(player, configuration);
+  }
 }
 
 /// {@template video_controller_configuration}
 ///
 /// VideoControllerConfiguration
 /// ----------------------------
-/// Configurable options for customizing the [VideoController] behavior.
+/// Configurable options for customizing the [PlatformVideoController] behavior.
 ///
 /// {@endtemplate}
 class VideoControllerConfiguration {
@@ -82,12 +91,6 @@ class VideoControllerConfiguration {
   /// * Windows, GNU/Linux, macOS & iOS : `auto`
   /// * Android: `auto-safe`
   final String? hwdec;
-
-  /// The scale for the video output.
-  /// This may be used for performance reasons. Specifying this option will cause [width] & [height] to be ignored.
-  ///
-  /// Default: `1.0`
-  final double scale;
 
   /// The fixed width for the video output.
   /// This may be used for performance reasons.
@@ -119,7 +122,6 @@ class VideoControllerConfiguration {
     this.hwdec,
     this.width,
     this.height,
-    this.scale = 1.0,
     this.enableHardwareAcceleration = true,
     this.androidAttachSurfaceAfterVideoParameters,
   });

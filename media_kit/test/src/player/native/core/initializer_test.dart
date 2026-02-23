@@ -23,7 +23,7 @@ void main() {
     'initializer-create',
     () {
       expect(
-        Initializer.create(NativeLibrary.path, (_) async {}),
+        Initializer.create(MPV(DynamicLibrary.open(NativeLibrary.path)), (_) async {}),
         completes,
       );
     },
@@ -31,7 +31,7 @@ void main() {
   test(
     'initializer-dispose',
     () async {
-      final handle = await Initializer.create(NativeLibrary.path, (_) async {});
+      final handle = await Initializer.create(MPV(DynamicLibrary.open(NativeLibrary.path)), (_) async {});
       expect(
         () => Initializer.dispose(handle),
         returnsNormally,
@@ -68,7 +68,7 @@ void main() {
       });
 
       final handle = await Initializer.create(
-        NativeLibrary.path,
+        mpv,
         (event) async {
           if (event.ref.event_id == mpv_event_id.MPV_EVENT_PROPERTY_CHANGE) {
             final prop = event.ref.data.cast<mpv_event_property>();
@@ -127,7 +127,7 @@ void main() {
     () async {
       final mpv = MPV(DynamicLibrary.open(NativeLibrary.path));
       final handle = await Initializer.create(
-        NativeLibrary.path,
+        mpv,
         (_) async {},
         options: {
           'config': 'yes',
@@ -169,7 +169,7 @@ void main() {
     () async {
       final mpv = MPV(DynamicLibrary.open(NativeLibrary.path));
       final handle = await Initializer.create(
-        NativeLibrary.path,
+        mpv,
         null,
         options: {
           'config': 'yes',

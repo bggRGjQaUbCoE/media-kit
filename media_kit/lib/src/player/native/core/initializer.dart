@@ -3,6 +3,7 @@
 /// Copyright © 2021 & onwards, Hitesh Kumar Saini <saini123hitesh@gmail.com>.
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
+import 'dart:async';
 import 'dart:ffi';
 
 import 'initializer_isolate.dart';
@@ -19,20 +20,21 @@ import 'package:media_kit/generated/libmpv/bindings.dart';
 /// See package:media_kit_native_event_loop for more details.
 abstract class Initializer {
   /// Creates & returns initialized [Pointer<mpv_handle>].
-  static Future<Pointer<mpv_handle>> create(
-    String path,
-    Future<void> Function(Pointer<mpv_event> event)? callback, {
+  static FutureOr<Pointer<mpv_handle>> create(
+    MPV mpv,
+    FutureOr<void> Function(Pointer<mpv_event> event)? callback, {
     Map<String, String> options = const {},
-  }) async {
+  }) {
     try {
-      return await InitializerNativeEventLoop.create(
-        path,
+      return InitializerNativeEventLoop.create(
+        mpv,
         callback,
         options,
       );
-    } catch (_) {
-      return await InitializerIsolate.create(
-        path,
+    } catch (e, s) {
+      Zone.current.handleUncaughtError(e, s);
+      return InitializerIsolate.create(
+        mpv,
         callback,
         options,
       );

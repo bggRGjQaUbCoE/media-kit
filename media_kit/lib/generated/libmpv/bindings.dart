@@ -28,7 +28,7 @@ class MPV {
       _lookup<ffi.NativeFunction<ffi.Uint64 Function()>>(
           'mpv_client_api_version');
   late final _mpv_client_api_version =
-      _mpv_client_api_versionPtr.asFunction<int Function()>();
+      _mpv_client_api_versionPtr.asFunction<int Function()>(isLeaf: true);
 
   /// Return a string describing the error. For unknown errors, the string
   /// "unknown error" is returned.

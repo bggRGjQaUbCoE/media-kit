@@ -67,9 +67,9 @@ class MediaKitVideoPlayer extends VideoPlayerPlatform {
   /// Creates an instance of a video player and returns its textureId.
   @override
   Future<int?> create(DataSource dataSource) async {
-    final player = Player();
+    final player = await Player.create();
     final completer = Completer();
-    final videoController = VideoController(player);
+    final videoController = await VideoController.create(player);
     // NOTE: [StreamController] without broadcast buffers events.
     final streamController = StreamController<VideoEvent>();
     final streamSubscriptions = <StreamSubscription>[];
@@ -105,18 +105,10 @@ class MediaKitVideoPlayer extends VideoPlayerPlatform {
       case DataSourceType.contentUri:
         resource = dataSource.uri!;
         break;
-
-      default:
-        throw UnsupportedError('${dataSource.sourceType} is not supported');
     }
 
-    await player.open(
-      Media(
-        resource,
-        httpHeaders: httpHeaders,
-      ),
-      play: false,
-    );
+    player.setMediaHeader(httpHeaders);
+    await player.open(Media(resource), play: false);
 
     return textureId;
   }
@@ -168,7 +160,7 @@ class MediaKitVideoPlayer extends VideoPlayerPlatform {
   /// Gets the video position as [Duration] from the start.
   @override
   Future<Duration> getPosition(int textureId) async {
-    return _players[textureId]?.platform?.state.position ?? Duration.zero;
+    return _players[textureId]?.state.position ?? Duration.zero;
   }
 
   /// Returns a widget displaying the video with a given textureId.

@@ -17,6 +17,7 @@ export 'package:media_kit/src/models/player_state.dart';
 export 'package:media_kit/src/models/player_stream.dart';
 export 'package:media_kit/src/models/playlist_mode.dart';
 export 'package:media_kit/src/models/playlist.dart';
+export 'package:media_kit/src/models/subtitle.dart';
 export 'package:media_kit/src/models/track.dart';
 export 'package:media_kit/src/models/video_params.dart';
 
