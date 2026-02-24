@@ -4,9 +4,6 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 // ignore_for_file: library_private_types_in_public_api
-import 'dart:io';
-import 'dart:collection';
-
 import 'package:media_kit/src/models/playable.dart';
 
 /// {@template media}
@@ -43,23 +40,7 @@ class Media extends Playable {
   final Duration? end;
 
   /// {@macro media}
-  Media(String resource, {this.extras, this.start, this.end})
-    : uri = normalizeURI(resource);
-
-  /// Normalizes the passed URI.
-  static String normalizeURI(String uri) {
-    if (uri.startsWith(_kAssetScheme)) {
-      // Handle asset:// scheme. Only for Flutter.
-      throw UnimplementedError(_kAssetScheme);
-    }
-    // content:// URI support for Android.
-    if (Platform.isAndroid) {
-      if (uri.startsWith('content://')) {
-        throw UnimplementedError('content://');
-      }
-    }
-    return uri;
-  }
+  const Media(this.uri, {this.extras, this.start, this.end});
 
   /// For comparing with other [Media] instances.
   @override
@@ -91,10 +72,4 @@ class Media extends Playable {
 
   @override
   String toString() => 'Media($uri, extras: $extras, start: $start, end: $end)';
-
-  /// URI scheme used to identify Flutter assets.
-  static const String _kAssetScheme = 'asset://';
-
-  /// Previously created [Media] instances' reference count.
-  static final HashMap<String, int> ref = HashMap<String, int>();
 }

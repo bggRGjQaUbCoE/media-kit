@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:io';
 import 'dart:typed_data';
-import 'package:media_kit/src/models/subtitle.dart';
+import 'package:path/path.dart' show join;
 import 'package:test/test.dart';
 import 'package:collection/collection.dart';
 
@@ -12,6 +13,7 @@ import 'package:media_kit/src/models/audio_device.dart';
 import 'package:media_kit/src/models/audio_params.dart';
 import 'package:media_kit/src/models/video_params.dart';
 import 'package:media_kit/src/models/playlist_mode.dart';
+import 'package:media_kit/src/models/subtitle.dart';
 
 import 'package:media_kit/src/media_kit.dart';
 import 'package:media_kit/src/player/player.dart';
@@ -3095,6 +3097,8 @@ Simply for <u>everyone</u>
         print(event);
       });
 
+      final file = await File(join(Directory.systemTemp.path, 'player-subtitle-reset-set-subtitle-track-subtitle-track-no.vtt')).writeAsString(webvtt);
+
       expect(
         player.stream.track,
         emitsInOrder(
@@ -3102,8 +3106,8 @@ Simply for <u>everyone</u>
             Track(
               video: VideoTrack.auto(),
               audio: AudioTrack.auto(),
-              subtitle: SubtitleTrack.data(
-                webvtt,
+              subtitle: SubtitleTrack.uri(
+                file.absolute.uri.toString(),
                 title: 'English',
                 language: 'en',
               ),
@@ -3302,8 +3306,8 @@ Simply for <u>everyone</u>
         ),
       );
       await player.setSubtitleTrack(
-        SubtitleTrack.data(
-          webvtt,
+        SubtitleTrack.uri(
+          file.absolute.uri.toString(),
           title: 'English',
           language: 'en',
         ),
@@ -3312,6 +3316,8 @@ Simply for <u>everyone</u>
       await Future.delayed(const Duration(minutes: 1));
 
       await player.dispose();
+
+      await file.delete();
     },
     skip: kSkipFlakyTests,
     timeout: Timeout(const Duration(minutes: 2)),
@@ -3415,7 +3421,8 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
       );
 
       await player.open(Media(sources.platform[0]));
-      await player.setSubtitleTrack(SubtitleTrack.data(subtitle));
+      final file = await File(join(Directory.systemTemp.path, 'player-subtitle-reset-open.vtt')).writeAsString(subtitle);
+      await player.setSubtitleTrack(SubtitleTrack.uri(file.absolute.uri.toString()));
 
       await Future.delayed(const Duration(seconds: 5));
 
@@ -3425,6 +3432,8 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
       await Future.delayed(const Duration(seconds: 15));
 
       await player.dispose();
+
+      await file.delete();
     },
     skip: kSkipFlakyTests,
   );
@@ -3488,7 +3497,8 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
       );
 
       await player.open(Media(sources.platform[0]));
-      await player.setSubtitleTrack(SubtitleTrack.data(subtitle));
+      final file = await File(join(Directory.systemTemp.path, 'player-subtitle-reset-set-subtitle-track-subtitle-track-no.vtt')).writeAsString(subtitle);
+      await player.setSubtitleTrack(SubtitleTrack.uri(file.absolute.uri.toString()));
 
       await Future.delayed(const Duration(seconds: 5));
 
@@ -3498,6 +3508,8 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit.
       await Future.delayed(const Duration(seconds: 15));
 
       await player.dispose();
+
+      await file.delete();
     },
     skip: kSkipFlakyTests,
   );

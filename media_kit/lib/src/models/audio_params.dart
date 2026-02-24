@@ -51,12 +51,7 @@ class AudioParams {
   }
 
   @override
-  int get hashCode =>
-      format.hashCode ^
-      sampleRate.hashCode ^
-      channels.hashCode ^
-      channelCount.hashCode ^
-      hrChannels.hashCode;
+  int get hashCode => Object.hash(format, sampleRate, channels, channelCount, hrChannels);
 
   @override
   String toString() => 'AudioParams('

@@ -5,12 +5,12 @@
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 import 'dart:ffi';
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:media_kit/src/models/subtitle.dart';
 import 'package:meta/meta.dart';
 import 'package:image/image.dart';
 import 'package:synchronized/synchronized.dart';
-import 'package:safe_local_storage/safe_local_storage.dart';
 
 import 'package:media_kit/ffi/ffi.dart';
 
@@ -21,7 +21,6 @@ import 'package:media_kit/src/player/native/core/native_library.dart';
 import 'package:media_kit/src/player/native/core/initializer_native_event_loop.dart';
 
 import 'package:media_kit/src/player/native/utils/isolates.dart';
-import 'package:media_kit/src/player/native/utils/temp_file.dart';
 import 'package:media_kit/src/player/native/utils/android_helper.dart';
 
 import 'package:media_kit/src/models/track.dart';
@@ -39,7 +38,7 @@ import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
 
 /// Initializes the native backend for package:media_kit.
 void nativeEnsureInitialized({String? libmpv}) {
-  AndroidHelper.ensureInitialized();
+  if (Platform.isAndroid) AndroidHelper.ensureInitialized(libmpv: libmpv);
   NativeLibrary.ensureInitialized(libmpv: libmpv);
   InitializerNativeEventLoop.ensureInitialized();
 }
@@ -280,10 +279,10 @@ class NativePlayer extends PlatformPlayer {
         //   audioDevicesController.add([AudioDevice.auto()]);
         // }
         if (!trackController.isClosed) {
-          trackController.add(Track());
+          trackController.add(const Track());
         }
         if (!tracksController.isClosed) {
-          tracksController.add(Tracks());
+          tracksController.add(const Tracks());
         }
         if (!sizeController.isClosed) {
           sizeController.add(const (0, 0));
@@ -847,24 +846,10 @@ class NativePlayer extends PlatformPlayer {
         subtitleController.add(state.subtitle);
       }
 
-      if (track.uri || track.data) {
-        final String uri;
-        if (track.uri) {
-          uri = track.id;
-        } else if (track.data) {
-          // Save the subtitle data to a temporary [File].
-          final temp = await TempFile.create();
-          await temp.write_(track.id);
-          // Delete the temporary [File] upon [dispose].
-          release.add(temp.delete_);
-          uri = temp.uri.toString();
-        } else {
-          return;
-        }
-
+      if (track.uri) {
         await command([
           'sub-add',
-          uri,
+          track.id,
           'select',
           track.title ?? 'external',
           track.language ?? 'auto',

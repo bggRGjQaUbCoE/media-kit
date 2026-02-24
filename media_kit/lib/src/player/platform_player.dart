@@ -40,7 +40,7 @@ abstract class PlatformPlayer {
   final PlayerConfiguration configuration;
 
   /// Current state of the player.
-  late PlayerState state = PlayerState();
+  late PlayerState state = const PlayerState();
 
   /// Current state of the player available as listenable [Stream]s.
   late final PlayerStream stream = PlayerStream(
