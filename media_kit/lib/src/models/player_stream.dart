@@ -8,7 +8,6 @@ import 'package:media_kit/src/models/subtitle.dart';
 import 'package:media_kit/src/models/track.dart';
 import 'package:media_kit/src/models/playlist.dart';
 import 'package:media_kit/src/models/player_log.dart';
-import 'package:media_kit/src/models/audio_device.dart';
 import 'package:media_kit/src/models/audio_params.dart';
 import 'package:media_kit/src/models/video_params.dart';
 
@@ -51,12 +50,6 @@ class PlayerStream {
   /// e.g. width, height, rotation etc.
   final Stream<VideoParams> videoParams;
 
-  /// Currently selected [AudioDevice]s.
-  final Stream<AudioDevice> audioDevice;
-
-  /// Currently available [AudioDevice]s.
-  final Stream<List<AudioDevice>> audioDevices;
-
   /// Currently selected video, audio and subtitle track.
   final Stream<Track> track;
 
@@ -86,8 +79,6 @@ class PlayerStream {
     this.buffer,
     this.audioParams,
     this.videoParams,
-    this.audioDevice,
-    this.audioDevices,
     this.track,
     this.tracks,
     this.size,

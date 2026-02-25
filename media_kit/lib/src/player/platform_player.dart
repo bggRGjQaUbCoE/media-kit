@@ -8,7 +8,6 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:media_kit/src/models/subtitle.dart';
 import 'package:meta/meta.dart';
-import 'package:collection/collection.dart';
 
 import 'package:media_kit/src/models/track.dart';
 import 'package:media_kit/src/models/playable.dart';
@@ -40,7 +39,7 @@ abstract class PlatformPlayer {
   final PlayerConfiguration configuration;
 
   /// Current state of the player.
-  late PlayerState state = const PlayerState();
+  final PlayerState state = PlayerState();
 
   /// Current state of the player available as listenable [Stream]s.
   late final PlayerStream stream = PlayerStream(
@@ -55,8 +54,6 @@ abstract class PlatformPlayer {
     audioParamsController.stream,
     /* VIDEO-PARAMS STREAM SHOULD NOT BE DISTINCT */
     videoParamsController.stream,
-    audioDeviceController.stream.distinct(),
-    audioDevicesController.stream.distinct(const ListEquality().equals),
     trackController.stream.distinct(),
     tracksController.stream.distinct(),
     sizeController.stream.distinct(),
@@ -78,8 +75,6 @@ abstract class PlatformPlayer {
       bufferController.close(),
       audioParamsController.close(),
       videoParamsController.close(),
-      audioDeviceController.close(),
-      audioDevicesController.close(),
       trackController.close(),
       tracksController.close(),
       sizeController.close(),
@@ -237,14 +232,6 @@ abstract class PlatformPlayer {
   @protected
   final StreamController<VideoParams> videoParamsController =
       StreamController<VideoParams>.broadcast();
-
-  @protected
-  final StreamController<AudioDevice> audioDeviceController =
-      StreamController<AudioDevice>.broadcast();
-
-  @protected
-  final StreamController<List<AudioDevice>> audioDevicesController =
-      StreamController<List<AudioDevice>>.broadcast();
 
   @protected
   final StreamController<Track> trackController =

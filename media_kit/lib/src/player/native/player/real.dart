@@ -31,7 +31,6 @@ import 'package:media_kit/src/models/media/media.dart';
 import 'package:media_kit/src/models/audio_device.dart';
 import 'package:media_kit/src/models/audio_params.dart';
 import 'package:media_kit/src/models/video_params.dart';
-import 'package:media_kit/src/models/player_state.dart';
 import 'package:media_kit/src/models/playlist_mode.dart';
 
 import 'package:media_kit/generated/libmpv/bindings.dart' as generated;
@@ -180,7 +179,7 @@ class NativePlayer extends PlatformPlayer {
       if (play) {
         isPlayingStateChangeAllowed = true;
         await _setPropertyFlag('pause', false);
-        state = state.copyWith(playing: true);
+        state.playing = true;
         if (!playingController.isClosed) {
           playingController.add(true);
         }
@@ -218,14 +217,22 @@ class NativePlayer extends PlatformPlayer {
       }
 
       // Reset the remaining attributes.
-      state = PlayerState().copyWith(
-        volume: state.volume,
-        rate: state.rate,
-        pitch: state.pitch,
-        playlistMode: state.playlistMode,
-        audioDevice: state.audioDevice,
-        audioDevices: state.audioDevices,
-      );
+      state
+        ..playlist = const Playlist([])
+        ..playing = false
+        ..completed = false
+        ..position = Duration.zero
+        ..duration = Duration.zero
+        ..buffering = false
+        ..buffer = Duration.zero
+        ..audioParams = const AudioParams()
+        ..videoParams = const VideoParams()
+        ..track = const Track()
+        ..tracks = const Tracks()
+        ..width = 0
+        ..height = 0
+        ..subtitle = const Subtitle.raw();
+
       if (!_isDisposing) {
         if (!open) {
           // Do not emit PlayerStream.playlist if invoked from [open].
@@ -306,7 +313,7 @@ class NativePlayer extends PlatformPlayer {
     Future<void> function() async {
       throwIfDisposed();
 
-      state = state.copyWith(playing: true);
+      state.playing = true;
       if (!playingController.isClosed) {
         playingController.add(true);
       }
@@ -334,7 +341,7 @@ class NativePlayer extends PlatformPlayer {
     Future<void> function() async {
       throwIfDisposed();
 
-      state = state.copyWith(playing: false);
+      state.playing = false;
       if (!playingController.isClosed) {
         playingController.add(false);
       }
@@ -359,7 +366,7 @@ class NativePlayer extends PlatformPlayer {
 
       if (notify) {
         // Do not change the [state.playing] value if [playOrPause] was called from [play] or [pause]; where the [state.playing] value is already changed.
-        state = state.copyWith(playing: !state.playing);
+        state.playing = !state.playing;
         if (!playingController.isClosed) {
           playingController.add(state.playing);
         }
@@ -423,10 +430,10 @@ class NativePlayer extends PlatformPlayer {
             PlaylistMode.none,
             PlaylistMode.single,
           ].contains(state.playlistMode)) {
-        state = state.copyWith(
-          // Allow playOrPause /w state.completed code-path to play the playlist again.
-          completed: true,
-          playlist: state.playlist.copyWith(
+        // Allow playOrPause /w state.completed code-path to play the playlist again.
+        state
+          ..completed = true
+          ..playlist = state.playlist.copyWith(
             medias: state.playlist.medias.sublist(
               0,
               state.playlist.medias.length - 1,
@@ -434,8 +441,7 @@ class NativePlayer extends PlatformPlayer {
             index: state.playlist.medias.length - 2 < 0
                 ? 0
                 : state.playlist.medias.length - 2,
-          ),
-        );
+          );
         if (!completedController.isClosed) {
           completedController.add(true);
         }
@@ -558,7 +564,7 @@ class NativePlayer extends PlatformPlayer {
 
       // It is self explanatory that PlayerState.completed & PlayerStream.completed must enter the false state if seek is called. Typically after EOF.
       // https://github.com/media-kit/media-kit/issues/221
-      state = state.copyWith(completed: false);
+      state.completed = false;
       if (!completedController.isClosed) {
         completedController.add(false);
       }
@@ -601,7 +607,7 @@ class NativePlayer extends PlatformPlayer {
           }
       }
 
-      state = state.copyWith(playlistMode: playlistMode);
+      state.playlistMode = playlistMode;
     }
 
     if (synchronized) {
@@ -640,7 +646,7 @@ class NativePlayer extends PlatformPlayer {
       if (configuration.pitch) {
         // Pitch shift control is enabled.
 
-        state = state.copyWith(rate: rate);
+        state.rate = rate;
         // Apparently, using scaletempo:scale actually controls the playback rate as intended after setting audio-pitch-correction as FALSE.
         // speed on the other hand, changes the pitch when audio-pitch-correction is set to FALSE.
         // Since, it also alters the actual [speed], the scaletempo:scale is divided by the same value of [pitch] to compensate the speed change.
@@ -653,7 +659,7 @@ class NativePlayer extends PlatformPlayer {
       } else {
         // Pitch shift control is disabled.
 
-        state = state.copyWith(rate: rate);
+        state.rate = rate;
         await _setPropertyDouble('speed', rate);
       }
     }
@@ -678,7 +684,7 @@ class NativePlayer extends PlatformPlayer {
 
         // Pitch shift control is enabled.
 
-        state = state.copyWith(pitch: pitch);
+        state.pitch = pitch;
         // Apparently, using scaletempo:scale actually controls the playback rate as intended after setting audio-pitch-correction as FALSE.
         // speed on the other hand, changes the pitch when audio-pitch-correction is set to FALSE.
         // Since, it also alters the actual [speed], the scaletempo:scale is divided by the same value of [pitch] to compensate the speed change.
@@ -724,8 +730,8 @@ class NativePlayer extends PlatformPlayer {
 
   /// Sets the current [AudioDevice] for audio output.
   ///
-  /// * Currently selected [AudioDevice] can be accessed using [state.audioDevice] or [stream.audioDevice].
-  /// * The list of currently available [AudioDevice]s can be obtained accessed using [state.audioDevices] or [stream.audioDevices].
+  /// * Currently selected [AudioDevice] can be accessed using [getProperty].
+  /// * The list of currently available [AudioDevice]s can be obtained accessed using [getAudioDevices].
   @override
   Future<void> setAudioDevice(
     AudioDevice audioDevice, {
@@ -754,7 +760,7 @@ class NativePlayer extends PlatformPlayer {
       throwIfDisposed();
 
       await _setPropertyString('vid', track.id);
-      state = state.copyWith(track: state.track.copyWith(video: track));
+      state.track = state.track.copyWith(video: track);
       if (!trackController.isClosed) {
         trackController.add(state.track);
       }
@@ -796,13 +802,13 @@ class NativePlayer extends PlatformPlayer {
           track.title ?? 'external',
           track.language ?? 'auto',
         ]);
-        state = state.copyWith(track: state.track.copyWith(audio: track));
+        state.track = state.track.copyWith(audio: track);
         if (!trackController.isClosed) {
           trackController.add(state.track);
         }
       } else {
         await _setPropertyString('aid', track.id);
-        state = state.copyWith(track: state.track.copyWith(audio: track));
+        state.track = state.track.copyWith(audio: track);
         if (!trackController.isClosed) {
           trackController.add(state.track);
         }
@@ -841,7 +847,7 @@ class NativePlayer extends PlatformPlayer {
       throwIfDisposed();
 
       // Reset existing Player.state.subtitle & Player.stream.subtitle.
-      state = state.copyWith(subtitle: const Subtitle.raw());
+      state.subtitle = const Subtitle.raw();
       if (!subtitleController.isClosed) {
         subtitleController.add(state.subtitle);
       }
@@ -854,13 +860,13 @@ class NativePlayer extends PlatformPlayer {
           track.title ?? 'external',
           track.language ?? 'auto',
         ]);
-        state = state.copyWith(track: state.track.copyWith(subtitle: track));
+        state.track = state.track.copyWith(subtitle: track);
         if (!trackController.isClosed) {
           trackController.add(state.track);
         }
       } else {
         await _setPropertyString('sid', track.id);
-        state = state.copyWith(track: state.track.copyWith(subtitle: track));
+        state.track = state.track.copyWith(subtitle: track);
         if (!trackController.isClosed) {
           trackController.add(state.track);
         }
@@ -956,62 +962,10 @@ class NativePlayer extends PlatformPlayer {
     switch (eventId) {
       case generated.mpv_event_id.MPV_EVENT_PROPERTY_CHANGE:
         final prop = event.ref.data.cast<generated.mpv_event_property>();
-        switch (prop.ref.name.toDartString()) {
-          case 'idle-active':
-            if (prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
-              await _future;
-              if (!completer.isCompleted) completer.complete();
-            }
-          // Following properties are unrelated to the playback lifecycle. Thus, these can be accessed before initialization is complete.
-          // e.g. audio-device & audio-device-list seem to be emitted before idle-active.
-          case 'audio-device':
-            if (prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
-              final value = prop.ref.data.cast<generated.mpv_node>();
-              if (value.ref.format == generated.mpv_format.MPV_FORMAT_STRING) {
-                final name = value.ref.u.string.toDartString();
-                final audioDevice = AudioDevice(name, '');
-                state = state.copyWith(audioDevice: audioDevice);
-                if (!audioDeviceController.isClosed) {
-                  audioDeviceController.add(audioDevice);
-                }
-              }
-            }
-          case 'audio-device-list':
-            if (prop.ref.format == generated.mpv_format.MPV_FORMAT_NODE) {
-              final value = prop.ref.data.cast<generated.mpv_node>();
-              final audioDevices = <AudioDevice>[];
-              if (value.ref.format ==
-                  generated.mpv_format.MPV_FORMAT_NODE_ARRAY) {
-                final list = value.ref.u.list.ref;
-                for (int i = 0; i < list.num; i++) {
-                  if (list.values[i].format ==
-                      generated.mpv_format.MPV_FORMAT_NODE_MAP) {
-                    String name = '', description = '';
-                    final device = list.values[i].u.list.ref;
-                    for (int j = 0; j < device.num; j++) {
-                      if (device.values[j].format ==
-                          generated.mpv_format.MPV_FORMAT_STRING) {
-                        final property = device.keys[j].toDartString();
-                        final value = device.values[j].u.string.toDartString();
-                        switch (property) {
-                          case 'name':
-                            name = value;
-                            break;
-                          case 'description':
-                            description = value;
-                            break;
-                        }
-                      }
-                    }
-                    audioDevices.add(AudioDevice(name, description));
-                  }
-                }
-                state = state.copyWith(audioDevices: audioDevices);
-                if (!audioDevicesController.isClosed) {
-                  audioDevicesController.add(audioDevices);
-                }
-              }
-            }
+        if (prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG &&
+            prop.ref.name.toDartString() == 'idle-active') {
+          await _future;
+          if (!completer.isCompleted) completer.complete();
         }
       case generated.mpv_event_id.MPV_EVENT_SET_PROPERTY_REPLY:
       case generated.mpv_event_id.MPV_EVENT_COMMAND_REPLY:
@@ -1043,7 +997,9 @@ class NativePlayer extends PlatformPlayer {
     switch (eventId) {
       case generated.mpv_event_id.MPV_EVENT_START_FILE:
         if (isPlayingStateChangeAllowed) {
-          state = state.copyWith(playing: true, completed: false);
+          state
+            ..playing = true
+            ..completed = false;
           if (!playingController.isClosed) {
             playingController.add(true);
           }
@@ -1051,7 +1007,7 @@ class NativePlayer extends PlatformPlayer {
             completedController.add(false);
           }
         }
-        state = state.copyWith(buffering: true);
+        state.buffering = true;
         if (!bufferingController.isClosed) {
           bufferingController.add(true);
         }
@@ -1077,7 +1033,7 @@ class NativePlayer extends PlatformPlayer {
             if (prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
               final playing = prop.ref.data.cast<Int8>().value == 0;
               if (isPlayingStateChangeAllowed) {
-                state = state.copyWith(playing: playing);
+                state.playing = playing;
                 if (!playingController.isClosed) {
                   playingController.add(playing);
                 }
@@ -1089,13 +1045,13 @@ class NativePlayer extends PlatformPlayer {
               final buffering = prop.ref.data.cast<Int8>().value == 1;
               if (buffering) {
                 if (isBufferingStateChangeAllowed) {
-                  state = state.copyWith(buffering: true);
+                  state.buffering = true;
                   if (!bufferingController.isClosed) {
                     bufferingController.add(true);
                   }
                 }
               } else {
-                state = state.copyWith(buffering: false);
+                state.buffering = false;
                 if (!bufferingController.isClosed) {
                   bufferingController.add(false);
                 }
@@ -1105,7 +1061,7 @@ class NativePlayer extends PlatformPlayer {
           case 'paused-for-cache':
             if (prop.ref.format == generated.mpv_format.MPV_FORMAT_FLAG) {
               final buffering = prop.ref.data.cast<Int8>().value == 1;
-              state = state.copyWith(buffering: buffering);
+              state.buffering = buffering;
               if (!bufferingController.isClosed) {
                 bufferingController.add(buffering);
               }
@@ -1116,7 +1072,7 @@ class NativePlayer extends PlatformPlayer {
                 microseconds: (prop.ref.data.cast<Double>().value * 1e6)
                     .toInt(),
               );
-              state = state.copyWith(buffer: buffer);
+              state.buffer = buffer;
               if (!bufferController.isClosed) {
                 bufferController.add(buffer);
               }
@@ -1127,7 +1083,7 @@ class NativePlayer extends PlatformPlayer {
                 microseconds: (prop.ref.data.cast<Double>().value * 1e6)
                     .toInt(),
               );
-              state = state.copyWith(position: position);
+              state.position = position;
               if (!positionController.isClosed) {
                 positionController.add(position);
               }
@@ -1138,7 +1094,7 @@ class NativePlayer extends PlatformPlayer {
                 microseconds: (prop.ref.data.cast<Double>().value * 1e6)
                     .toInt(),
               );
-              state = state.copyWith(duration: duration);
+              state.duration = duration;
               if (!durationController.isClosed) {
                 durationController.add(duration);
               }
@@ -1176,11 +1132,9 @@ class NativePlayer extends PlatformPlayer {
               }
 
               if (index >= 0) {
-                state = state.copyWith(
-                  playlist: Playlist(playlist, index: index),
-                );
+                state.playlist = Playlist(playlist, index: index);
                 if (!playlistController.isClosed) {
-                  playlistController.add(Playlist(playlist, index: index));
+                  playlistController.add(state.playlist);
                 }
               }
             }
@@ -1207,14 +1161,12 @@ class NativePlayer extends PlatformPlayer {
                     hrChannels = list.values[i].u.string.toDartString();
                 }
               }
-              state = state.copyWith(
-                audioParams: AudioParams(
-                  format: format,
-                  sampleRate: sampleRate,
-                  channels: channels,
-                  channelCount: channelCount,
-                  hrChannels: hrChannels,
-                ),
+              state.audioParams = AudioParams(
+                format: format,
+                sampleRate: sampleRate,
+                channels: channels,
+                channelCount: channelCount,
+                hrChannels: hrChannels,
               );
               if (!audioParamsController.isClosed) {
                 audioParamsController.add(state.audioParams);
@@ -1405,12 +1357,10 @@ class NativePlayer extends PlatformPlayer {
                   }
                 }
 
-                state = state.copyWith(
-                  tracks: Tracks(
-                    video: video,
-                    audio: audio,
-                    subtitle: subtitle,
-                  ),
+                state.tracks = Tracks(
+                  video: video,
+                  audio: audio,
+                  subtitle: subtitle,
                 );
                 if (!tracksController.isClosed) {
                   tracksController.add(state.tracks);
@@ -1422,7 +1372,7 @@ class NativePlayer extends PlatformPlayer {
               final value = prop.ref.data.cast<generated.mpv_node>();
               if (value.ref.format == generated.mpv_format.MPV_FORMAT_STRING) {
                 final text = value.ref.u.string.toDartString();
-                state = state.copyWith(subtitle: state.subtitle.copyWith(first: text));
+                state.subtitle = state.subtitle.copyWith(first: text);
                 if (!subtitleController.isClosed) {
                   subtitleController.add(state.subtitle);
                 }
@@ -1433,7 +1383,7 @@ class NativePlayer extends PlatformPlayer {
               final value = prop.ref.data.cast<generated.mpv_node>();
               if (value.ref.format == generated.mpv_format.MPV_FORMAT_STRING) {
                 final text = value.ref.u.string.toDartString();
-                state = state.copyWith(subtitle: state.subtitle.copyWith(second: text));
+                state.subtitle = state.subtitle.copyWith(second: text);
                 if (!subtitleController.isClosed) {
                   subtitleController.add(state.subtitle);
                 }
@@ -1444,7 +1394,9 @@ class NativePlayer extends PlatformPlayer {
               final value = prop.ref.data.cast<Bool>().value;
               if (value) {
                 if (isPlayingStateChangeAllowed) {
-                  state = state.copyWith(playing: false, completed: true);
+                  state
+                    ..playing = false
+                    ..completed = true;
                   if (!playingController.isClosed) {
                     playingController.add(false);
                   }
@@ -1453,11 +1405,10 @@ class NativePlayer extends PlatformPlayer {
                   }
                 }
 
-                state = state.copyWith(
-                  buffering: false,
-                  tracks: const Tracks(),
-                  track: const Track(),
-                );
+                state
+                  ..buffering = false
+                  ..track = const Track()
+                  ..tracks = const Tracks();
                 if (!bufferingController.isClosed) {
                   bufferingController.add(false);
                 }
@@ -1511,7 +1462,7 @@ class NativePlayer extends PlatformPlayer {
                 alpha: data['alpha'],
               );
 
-              state = state.copyWith(videoParams: params);
+              state.videoParams = params;
               if (!videoParamsController.isClosed) {
                 videoParamsController.add(params);
               }
@@ -1530,7 +1481,9 @@ class NativePlayer extends PlatformPlayer {
                   width = dh;
                   height = dw;
                 }
-                state = state.copyWith(width: width, height: height);
+                state
+                  ..width = width
+                  ..height = height;
                 if (!sizeController.isClosed) {
                   sizeController.add((width, height));
                 }
@@ -1810,8 +1763,6 @@ class NativePlayer extends PlatformPlayer {
       ('paused-for-cache', generated.mpv_format.MPV_FORMAT_FLAG),
       ('demuxer-cache-time', generated.mpv_format.MPV_FORMAT_DOUBLE),
       ('audio-params', generated.mpv_format.MPV_FORMAT_NODE),
-      ('audio-device', generated.mpv_format.MPV_FORMAT_NODE),
-      ('audio-device-list', generated.mpv_format.MPV_FORMAT_NODE),
       ('video-out-params', generated.mpv_format.MPV_FORMAT_NODE),
       ('track-list', generated.mpv_format.MPV_FORMAT_NODE),
       ('eof-reached', generated.mpv_format.MPV_FORMAT_FLAG),
@@ -2031,6 +1982,51 @@ class NativePlayer extends PlatformPlayer {
     mpv.mpv_set_option_string(ctx, name, data);
     calloc.free(name);
     calloc.free(data);
+  }
+
+  List<AudioDevice> getAudioDevices() {
+    final name = 'audio-device-list'.toNativeUtf8();
+    final value = calloc<generated.mpv_node>();
+    final ret = mpv.mpv_get_property(
+      ctx,
+      name,
+      generated.mpv_format.MPV_FORMAT_NODE,
+      value.cast(),
+    );
+    final audioDevices = <AudioDevice>[];
+    if (ret >= 0) {
+      if (value.ref.format == generated.mpv_format.MPV_FORMAT_NODE_ARRAY) {
+        final list = value.ref.u.list.ref;
+        for (int i = 0; i < list.num; i++) {
+          if (list.values[i].format ==
+              generated.mpv_format.MPV_FORMAT_NODE_MAP) {
+            String name = '', description = '';
+            final device = list.values[i].u.list.ref;
+            for (int j = 0; j < device.num; j++) {
+              if (device.values[j].format ==
+                  generated.mpv_format.MPV_FORMAT_STRING) {
+                final value = device.values[j].u.string.toDartString();
+                switch (device.keys[j].toDartString()) {
+                  case 'name':
+                    name = value;
+                    break;
+                  case 'description':
+                    description = value;
+                    break;
+                }
+              }
+            }
+            audioDevices.add(AudioDevice(name, description));
+          }
+        }
+      }
+    } else {
+      _error(ret);
+    }
+    calloc.free(name);
+    mpv.mpv_free_node_contents(value.cast());
+    calloc.free(value);
+    return audioDevices;
   }
 }
 

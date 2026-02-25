@@ -918,70 +918,6 @@ void main() {
     timeout: Timeout(const Duration(minutes: 1)),
   );
   test(
-    'player-audio-devices',
-    () async {
-      final player = await Player.create();
-
-      final expectAudioDevices = expectAsync1(
-        (value) {
-          print(value);
-          expect(value, isA<List<AudioDevice>>());
-          final devices = value as List<AudioDevice>;
-          expect(devices, isNotEmpty);
-          expect(devices.first, equals(AudioDevice.auto()));
-        },
-        count: 1,
-        max: -1,
-      );
-
-      player.stream.audioDevices.listen((event) async {
-        expectAudioDevices(event);
-      });
-
-      addTearDown(player.dispose);
-    },
-    skip: false,
-  );
-  test(
-    'player-set-audio-device',
-    () async {
-      final player = await Player.create();
-
-      final devices = await player.stream.audioDevices.first;
-
-      if (devices.length > 1) {
-        expect(devices, isNotEmpty);
-        expect(devices.first, equals(AudioDevice.auto()));
-
-        final expectAudioDevice = expectAsync2(
-          (device, i) {
-            print(device);
-            expect(device, isA<AudioDevice>());
-            expect(device, equals(devices[i as int]));
-          },
-          count: devices.length,
-        );
-
-        int? index;
-
-        player.stream.audioDevice.listen((event) async {
-          expectAudioDevice(event, index);
-        });
-
-        for (int i = devices.length - 1; i >= 0; i--) {
-          index = i;
-
-          await player.setAudioDevice(devices[i]);
-
-          await Future.delayed(const Duration(seconds: 1));
-        }
-      }
-
-      addTearDown(player.dispose);
-    },
-    skip: false,
-  );
-  test(
     'player-set-audio-device',
     () async {
       final player = await Player.create();
@@ -2394,7 +2330,6 @@ void main() {
       expect(player.state.buffer, equals(Duration.zero));
       expect(player.state.audioParams, equals(const AudioParams()));
       expect(player.state.videoParams, equals(const VideoParams()));
-      expect(player.state.audioBitrate, equals(null));
       expect(player.state.track, equals(const Track()));
       expect(player.state.tracks, equals(const Tracks()));
       expect(player.state.width, equals(null));
