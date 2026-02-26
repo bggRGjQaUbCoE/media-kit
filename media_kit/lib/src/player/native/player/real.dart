@@ -162,29 +162,31 @@ class NativePlayer extends PlatformPlayer {
       // isPlayingStateChangeAllowed = false;
 
       for (int i = 0; i < playlist.length; i++) {
-        final playFlag = play && i == index ? '-play' : '';
-        final extras = playlist[i].extras;
-        await command([
-          'loadfile',
-          playlist[i].uri,
-          'append$playFlag',
-          if (apiVersion >= 0x20003) '-1',
-          if (extras != null && extras.isNotEmpty)
-            extras.entries.map((e) => '"${e.key}"="${e.value}"').join(','),
-        ]);
+        if (playlist[i].extras case final extras?) {
+          await command([
+            'loadfile',
+            playlist[i].uri,
+            'append',
+            if (apiVersion >= 0x20003) '-1',
+            extras.entries.map((e) => '${e.key}=${e.value}').join(','),
+          ]);
+        } else {
+          await command(['loadfile', playlist[i].uri, 'append']);
+        }
       }
 
       // If [play] is `true`, then exit paused state.
       if (play) {
         isPlayingStateChangeAllowed = true;
+        await _setPropertyFlag('pause', false);
         state.playing = true;
         if (!playingController.isClosed) {
           playingController.add(true);
         }
-      } else {
-        // Jump to the specified [index] (in both cases either [play] is `false`).
-        await _setPropertyInt64('playlist-pos', index);
       }
+
+      // Jump to the specified [index] (in both cases either [play] is `true` or `false`).
+      await _setPropertyInt64('playlist-pos', index);
     }
 
     if (synchronized) {
