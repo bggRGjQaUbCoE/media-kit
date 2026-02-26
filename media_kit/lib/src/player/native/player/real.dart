@@ -162,13 +162,14 @@ class NativePlayer extends PlatformPlayer {
       // isPlayingStateChangeAllowed = false;
 
       for (int i = 0; i < playlist.length; i++) {
-        if (playlist[i].extras case final extras?) {
+        final playFlag = play && i == index ? '-play' : '';
+        if (playlist[i].extras case final extras? when (extras.isNotEmpty)) {
           await command([
             'loadfile',
             playlist[i].uri,
-            'append',
-            if (apiVersion >= 0x20003) '0',
-            extras.entries.map((e) => '${e.key}=${e.value}').join(','),
+            'append$playFlag',
+            if (apiVersion >= 0x20003) '-1',
+            extras.entries.map((e) => '"${e.key}"="${e.value}"').join(','),
           ]);
         } else {
           await command(['loadfile', playlist[i].uri, 'append']);
@@ -178,15 +179,14 @@ class NativePlayer extends PlatformPlayer {
       // If [play] is `true`, then exit paused state.
       if (play) {
         isPlayingStateChangeAllowed = true;
-        await _setPropertyFlag('pause', false);
         state.playing = true;
         if (!playingController.isClosed) {
           playingController.add(true);
         }
+      } else {
+        // Jump to the specified [index] (in both cases either [play] is `false`).
+        await _setPropertyInt64('playlist-pos', index);
       }
-
-      // Jump to the specified [index] (in both cases either [play] is `true` or `false`).
-      await _setPropertyInt64('playlist-pos', index);
     }
 
     if (synchronized) {
@@ -588,23 +588,14 @@ class NativePlayer extends PlatformPlayer {
 
       switch (playlistMode) {
         case PlaylistMode.none:
-          {
-            await _setPropertyString('loop-file', 'no');
-            await _setPropertyString('loop-playlist', 'no');
-            break;
-          }
+          await _setPropertyString('loop-file', 'no');
+          await _setPropertyString('loop-playlist', 'no');
         case PlaylistMode.single:
-          {
-            await _setPropertyString('loop-file', 'yes');
-            await _setPropertyString('loop-playlist', 'no');
-            break;
-          }
+          await _setPropertyString('loop-file', 'yes');
+          await _setPropertyString('loop-playlist', 'no');
         case PlaylistMode.loop:
-          {
-            await _setPropertyString('loop-file', 'no');
-            await _setPropertyString('loop-playlist', 'yes');
-            break;
-          }
+          await _setPropertyString('loop-file', 'no');
+          await _setPropertyString('loop-playlist', 'yes');
       }
 
       state.playlistMode = playlistMode;
@@ -798,14 +789,10 @@ class NativePlayer extends PlatformPlayer {
         await command([
           'audio-add',
           track.id,
-          'select',
+          'cache',
           track.title ?? 'external',
           track.language ?? 'auto',
         ]);
-        state.track = state.track.copyWith(audio: track);
-        if (!trackController.isClosed) {
-          trackController.add(state.track);
-        }
       } else {
         await _setPropertyString('aid', track.id);
         state.track = state.track.copyWith(audio: track);
@@ -856,14 +843,10 @@ class NativePlayer extends PlatformPlayer {
         await command([
           'sub-add',
           track.id,
-          'select',
+          'cached',
           track.title ?? 'external',
           track.language ?? 'auto',
         ]);
-        state.track = state.track.copyWith(subtitle: track);
-        if (!trackController.isClosed) {
-          trackController.add(state.track);
-        }
       } else {
         await _setPropertyString('sid', track.id);
         state.track = state.track.copyWith(subtitle: track);
@@ -1181,6 +1164,10 @@ class NativePlayer extends PlatformPlayer {
                 final audio = [AudioTrack.auto(), AudioTrack.no()];
                 final subtitle = [SubtitleTrack.auto(), SubtitleTrack.no()];
 
+                VideoTrack vt = VideoTrack.no();
+                AudioTrack at = AudioTrack.no();
+                SubtitleTrack st = SubtitleTrack.no();
+
                 final tracks = value.ref.u.list.ref;
 
                 for (int i = 0; i < tracks.num; i++) {
@@ -1205,156 +1192,146 @@ class NativePlayer extends PlatformPlayer {
                     int? rotate;
                     double? par;
                     int? audiochannels;
+                    bool selected = false;
+                    String? externalFilename;
                     for (int j = 0; j < map.num; j++) {
                       final property = map.keys[j].toDartString();
-                      if (map.values[j].format ==
-                          generated.mpv_format.MPV_FORMAT_INT64) {
-                        switch (property) {
-                          case 'id':
-                            id = map.values[j].u.int64.toString();
-                            break;
-                          case 'demux-w':
-                            w = map.values[j].u.int64;
-                            break;
-                          case 'demux-h':
-                            h = map.values[j].u.int64;
-                            break;
-                          case 'demux-channel-count':
-                            channelscount = map.values[j].u.int64;
-                            break;
-                          case 'demux-samplerate':
-                            samplerate = map.values[j].u.int64;
-                            break;
-                          case 'demux-bitrate':
-                            bitrate = map.values[j].u.int64;
-                            break;
-                          case 'demux-rotate':
-                            rotate = map.values[j].u.int64;
-                            break;
-                          case 'audio-channels':
-                            audiochannels = map.values[j].u.int64;
-                            break;
-                        }
-                      }
-                      if (map.values[j].format ==
-                          generated.mpv_format.MPV_FORMAT_FLAG) {
-                        switch (property) {
-                          case 'image':
-                            image = map.values[j].u.flag > 0;
-                            break;
-                          case 'albumart':
-                            albumart = map.values[j].u.flag > 0;
-                            break;
-                        }
-                      }
-                      if (map.values[j].format ==
-                          generated.mpv_format.MPV_FORMAT_DOUBLE) {
-                        switch (property) {
-                          case 'demux-fps':
-                            fps = map.values[j].u.double_;
-                            break;
-                          case 'demux-par':
-                            par = map.values[j].u.double_;
-                            break;
-                        }
-                      }
-                      if (map.values[j].format ==
-                          generated.mpv_format.MPV_FORMAT_STRING) {
-                        final value = map.values[j].u.string.toDartString();
-                        switch (property) {
-                          case 'type':
-                            type = value;
-                            break;
-                          case 'title':
-                            title = value;
-                            break;
-                          case 'lang':
-                            language = value;
-                            break;
-                          case 'codec':
-                            codec = value;
-                            break;
-                          case 'decoder-desc':
-                            decoder = value;
-                            break;
-                          case 'demux-channels':
-                            channels = value;
-                            break;
-                        }
+                      switch (map.values[j].format) {
+                        case generated.mpv_format.MPV_FORMAT_STRING:
+                          final value = map.values[j].u.string.toDartString();
+                          switch (property) {
+                            case 'type':
+                              type = value;
+                            case 'title':
+                              title = value;
+                            case 'lang':
+                              language = value;
+                            case 'codec':
+                              codec = value;
+                            case 'decoder-desc':
+                              decoder = value;
+                            case 'demux-channels':
+                              channels = value;
+                            case 'external-filename':
+                              externalFilename = value;
+                          }
+                        case generated.mpv_format.MPV_FORMAT_FLAG:
+                          switch (property) {
+                            case 'image':
+                              image = map.values[j].u.flag != 0;
+                            case 'albumart':
+                              albumart = map.values[j].u.flag != 0;
+                            case 'selected':
+                              selected = map.values[j].u.flag != 0;
+                          }
+                        case generated.mpv_format.MPV_FORMAT_INT64:
+                          switch (property) {
+                            case 'id':
+                              id = map.values[j].u.int64.toString();
+                            case 'demux-w':
+                              w = map.values[j].u.int64;
+                            case 'demux-h':
+                              h = map.values[j].u.int64;
+                            case 'demux-channel-count':
+                              channelscount = map.values[j].u.int64;
+                            case 'demux-samplerate':
+                              samplerate = map.values[j].u.int64;
+                            case 'demux-bitrate':
+                              bitrate = map.values[j].u.int64;
+                            case 'demux-rotate':
+                              rotate = map.values[j].u.int64;
+                            case 'audio-channels':
+                              audiochannels = map.values[j].u.int64;
+                          }
+                        case generated.mpv_format.MPV_FORMAT_DOUBLE:
+                          switch (property) {
+                            case 'demux-fps':
+                              fps = map.values[j].u.double_;
+                            case 'demux-par':
+                              par = map.values[j].u.double_;
+                          }
                       }
                     }
                     switch (type) {
                       case 'video':
-                        video.add(
-                          VideoTrack(
-                            id,
-                            title,
-                            language,
-                            image: image,
-                            albumart: albumart,
-                            codec: codec,
-                            decoder: decoder,
-                            w: w,
-                            h: h,
-                            channelscount: channelscount,
-                            channels: channels,
-                            samplerate: samplerate,
-                            fps: fps,
-                            bitrate: bitrate,
-                            rotate: rotate,
-                            par: par,
-                            audiochannels: audiochannels,
-                          ),
+                        final track = VideoTrack(
+                          id,
+                          title,
+                          language,
+                          image: image,
+                          albumart: albumart,
+                          codec: codec,
+                          decoder: decoder,
+                          w: w,
+                          h: h,
+                          channelscount: channelscount,
+                          channels: channels,
+                          samplerate: samplerate,
+                          fps: fps,
+                          bitrate: bitrate,
+                          rotate: rotate,
+                          par: par,
+                          audiochannels: audiochannels,
+                          externalFilename: externalFilename,
+                          selected: selected,
                         );
-                        break;
+                        video.add(track);
+                        if (selected) vt = track;
                       case 'audio':
-                        audio.add(
-                          AudioTrack(
-                            id,
-                            title,
-                            language,
-                            image: image,
-                            albumart: albumart,
-                            codec: codec,
-                            decoder: decoder,
-                            w: w,
-                            h: h,
-                            channelscount: channelscount,
-                            channels: channels,
-                            samplerate: samplerate,
-                            fps: fps,
-                            bitrate: bitrate,
-                            rotate: rotate,
-                            par: par,
-                            audiochannels: audiochannels,
-                          ),
+                        final track = AudioTrack(
+                          id,
+                          title,
+                          language,
+                          image: image,
+                          albumart: albumart,
+                          codec: codec,
+                          decoder: decoder,
+                          w: w,
+                          h: h,
+                          channelscount: channelscount,
+                          channels: channels,
+                          samplerate: samplerate,
+                          fps: fps,
+                          bitrate: bitrate,
+                          rotate: rotate,
+                          par: par,
+                          audiochannels: audiochannels,
+                          externalFilename: externalFilename,
+                          selected: selected,
                         );
-                        break;
+                        audio.add(track);
+                        if (selected) at = track;
                       case 'sub':
-                        subtitle.add(
-                          SubtitleTrack(
-                            id,
-                            title,
-                            language,
-                            image: image,
-                            albumart: albumart,
-                            codec: codec,
-                            decoder: decoder,
-                            w: w,
-                            h: h,
-                            channelscount: channelscount,
-                            channels: channels,
-                            samplerate: samplerate,
-                            fps: fps,
-                            bitrate: bitrate,
-                            rotate: rotate,
-                            par: par,
-                            audiochannels: audiochannels,
-                          ),
+                        final track = SubtitleTrack(
+                          id,
+                          title,
+                          language,
+                          image: image,
+                          albumart: albumart,
+                          codec: codec,
+                          decoder: decoder,
+                          w: w,
+                          h: h,
+                          channelscount: channelscount,
+                          channels: channels,
+                          samplerate: samplerate,
+                          fps: fps,
+                          bitrate: bitrate,
+                          rotate: rotate,
+                          par: par,
+                          audiochannels: audiochannels,
+                          externalFilename: externalFilename,
+                          selected: selected,
                         );
-                        break;
+                        subtitle.add(track);
+                        if (selected) st = track;
                     }
                   }
+                }
+
+                state.track = Track(video: vt, audio: at, subtitle: st);
+                if (!trackController.isClosed) {
+                  trackController.add(state.track);
                 }
 
                 state.tracks = Tracks(
@@ -1430,13 +1407,10 @@ class NativePlayer extends PlatformPlayer {
                 switch (value.format) {
                   case generated.mpv_format.MPV_FORMAT_INT64:
                     data[key] = value.u.int64;
-                    break;
                   case generated.mpv_format.MPV_FORMAT_DOUBLE:
                     data[key] = value.u.double_;
-                    break;
                   case generated.mpv_format.MPV_FORMAT_STRING:
                     data[key] = value.u.string.toDartString();
-                    break;
                 }
               }
 
@@ -1869,7 +1843,7 @@ class NativePlayer extends PlatformPlayer {
     }
     final requestNumber = _asyncRequestNumber++;
     final completer = _requests[requestNumber] = Completer<int>();
-    final immediate = mpv.mpv_command_async(ctx, requestNumber, arr.cast());
+    final immediate = mpv.mpv_command_async(ctx, requestNumber, arr);
     calloc.free(arr);
     pointers.forEach(calloc.free);
     if (immediate < 0) {
@@ -2009,10 +1983,8 @@ class NativePlayer extends PlatformPlayer {
                 switch (device.keys[j].toDartString()) {
                   case 'name':
                     name = value;
-                    break;
                   case 'description':
                     description = value;
-                    break;
                 }
               }
             }
@@ -2081,23 +2053,17 @@ Uint8List? _screenshot(_ScreenshotData data) {
           switch (key) {
             case 'w':
               w = value.u.int64;
-              break;
             case 'h':
               h = value.u.int64;
-              break;
             case 'stride':
               stride = value.u.int64;
-              break;
           }
-          break;
         case generated.mpv_format.MPV_FORMAT_BYTE_ARRAY:
           switch (key) {
             case 'data':
               final data = value.u.ba.ref.data.cast<Uint8>();
               bytes = data.asTypedList(value.u.ba.ref.size);
-              break;
           }
-          break;
       }
     }
 
@@ -2118,7 +2084,6 @@ Uint8List? _screenshot(_ScreenshotData data) {
             }
           }
           image = encodeJpg(pixels);
-          break;
         case ScreenshotFormat.png:
           final pixels = Image(width: w, height: h, numChannels: 3);
           final data = pixels.data!.buffer.asUint8List();
@@ -2134,10 +2099,8 @@ Uint8List? _screenshot(_ScreenshotData data) {
             }
           }
           image = encodePng(pixels);
-          break;
         case ScreenshotFormat.none:
           image = bytes;
-          break;
       }
     }
   }

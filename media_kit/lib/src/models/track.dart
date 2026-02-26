@@ -33,6 +33,8 @@ sealed class _Track {
   final int? rotate; /* demux-rotate */
   final double? par; /* demux-par */
   final int? audiochannels; /* audio-channels */
+  final String? externalFilename; /* externalFilename */
+  final bool selected; /* selected */
   // ----------------------------------------
 
   /// {@macro _track}
@@ -54,6 +56,8 @@ sealed class _Track {
     this.rotate,
     this.par,
     this.audiochannels,
+    this.externalFilename,
+    this.selected = false,
   });
 
   @override
@@ -87,7 +91,9 @@ sealed class _Track {
       'bitrate: $bitrate, '
       'rotate: $rotate, '
       'par: $par, '
-      'audiochannels: $audiochannels'
+      'audiochannels: $audiochannels, '
+      'externalFilename: $externalFilename, '
+      'selected: $selected'
       ')';
 }
 
@@ -119,6 +125,8 @@ class VideoTrack extends _Track {
     super.rotate,
     super.par,
     super.audiochannels,
+    super.externalFilename,
+    super.selected = false,
   });
 
   /// No video track. Disables video output.
@@ -160,6 +168,8 @@ class AudioTrack extends _Track {
     super.par,
     super.audiochannels,
     this.uri = false,
+    super.externalFilename,
+    super.selected = false,
   });
 
   /// No audio track. Disables audio output.
@@ -224,6 +234,8 @@ class SubtitleTrack extends _Track {
     super.par,
     super.audiochannels,
     this.uri = false,
+    super.externalFilename,
+    super.selected = false,
   });
 
   /// No subtitle track. Disables subtitle output.
@@ -367,4 +379,9 @@ class Tracks {
   @override
   String toString() =>
       'Tracks(video: $video, audio: $audio, subtitle: $subtitle)';
+}
+
+// ignore: library_private_types_in_public_api
+extension TrackExt<T extends _Track> on List<T> {
+  T? get selected => skip(2).firstWhereOrNull((i) => i.selected);
 }

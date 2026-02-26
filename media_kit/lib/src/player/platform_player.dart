@@ -42,6 +42,7 @@ abstract class PlatformPlayer {
   final PlayerState state = PlayerState();
 
   /// Current state of the player available as listenable [Stream]s.
+  /// TODO: ValueNotifier instead
   late final PlayerStream stream = PlayerStream(
     playlistController.stream.distinct(),
     playingController.stream.distinct(),
