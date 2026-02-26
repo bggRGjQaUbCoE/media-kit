@@ -27,7 +27,7 @@ class Media extends Playable {
   /// Additional optional user data.
   ///
   /// Default: `null`.
-  final Map<String, dynamic>? extras;
+  final Map<String, String>? extras;
 
   /// Start position.
   ///
@@ -58,7 +58,7 @@ class Media extends Playable {
   /// Creates a copy of [this] instance with the given fields replaced with the new values.
   Media copyWith({
     String? uri,
-    Map<String, dynamic>? extras,
+    Map<String, String>? extras,
     Duration? start,
     Duration? end,
   }) {

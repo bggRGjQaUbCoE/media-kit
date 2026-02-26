@@ -163,17 +163,15 @@ class NativePlayer extends PlatformPlayer {
 
       for (int i = 0; i < playlist.length; i++) {
         final playFlag = play && i == index ? '-play' : '';
-        if (playlist[i].extras case final extras? when (extras.isNotEmpty)) {
-          await command([
-            'loadfile',
-            playlist[i].uri,
-            'append$playFlag',
-            if (apiVersion >= 0x20003) '-1',
+        final extras = playlist[i].extras;
+        await command([
+          'loadfile',
+          playlist[i].uri,
+          'append$playFlag',
+          if (apiVersion >= 0x20003) '-1',
+          if (extras != null && extras.isNotEmpty)
             extras.entries.map((e) => '"${e.key}"="${e.value}"').join(','),
-          ]);
-        } else {
-          await command(['loadfile', playlist[i].uri, 'append']);
-        }
+        ]);
       }
 
       // If [play] is `true`, then exit paused state.
