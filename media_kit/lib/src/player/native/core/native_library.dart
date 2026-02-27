@@ -49,35 +49,31 @@ abstract class NativeLibrary {
       'linux' => const ['libmpv.so', 'libmpv.so.2', 'libmpv.so.1'],
       'macos' || 'ios' => const ['Mpv.framework/Mpv'],
       'android' => const ['libmpv.so'],
-      _ => null,
-    };
-    if (names != null) {
-      // Try to load the dynamic library from the system using [DynamicLibrary.open].
-      for (final name in names) {
-        try {
-          DynamicLibrary.open(name);
-          _resolved = name;
-          return;
-        } catch (_) {}
-      }
-      // If the dynamic library is not loaded, throw an [Exception].
-      if (_resolved == null) {
-        throw Exception(switch (Platform.operatingSystem) {
-          'windows' =>
-            'Cannot find libmpv-2.dll in your system %PATH%. One way to deal with this is to ship libmpv-2.dll with your compiled executable or script in the same directory.',
-          'linux' =>
-            'Cannot find libmpv at the usual places. Depending upon your distribution, you can install the libmpv package to make shared library available globally. On Debian or Ubuntu based systems, you can install it with: apt install libmpv-dev.',
-          'macos' || 'ios' =>
-            'Cannot find Mpv.framework/Mpv. Please ensure it\'s presence in the Frameworks folder of the application.',
-          'android' =>
-            'Cannot find libmpv.so. Please ensure it\'s presence in the APK.',
-          _ => null,
-        });
-      }
-    } else {
-      throw Exception(
+      _ => throw UnimplementedError(
         'Unsupported operating system: ${Platform.operatingSystem}',
-      );
+      ),
+    };
+    // Try to load the dynamic library from the system using [DynamicLibrary.open].
+    for (final name in names) {
+      try {
+        DynamicLibrary.open(name);
+        _resolved = name;
+        return;
+      } catch (_) {}
+    }
+    // If the dynamic library is not loaded, throw an [Exception].
+    if (_resolved == null) {
+      throw Exception(switch (Platform.operatingSystem) {
+        'windows' =>
+          'Cannot find libmpv-2.dll in your system %PATH%. One way to deal with this is to ship libmpv-2.dll with your compiled executable or script in the same directory.',
+        'linux' =>
+          'Cannot find libmpv at the usual places. Depending upon your distribution, you can install the libmpv package to make shared library available globally. On Debian or Ubuntu based systems, you can install it with: apt install libmpv-dev.',
+        'macos' || 'ios' =>
+          'Cannot find Mpv.framework/Mpv. Please ensure it\'s presence in the Frameworks folder of the application.',
+        'android' =>
+          'Cannot find libmpv.so. Please ensure it\'s presence in the APK.',
+        _ => null,
+      });
     }
   }
 
