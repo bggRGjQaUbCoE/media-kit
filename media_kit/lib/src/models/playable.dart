@@ -4,6 +4,11 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 
+import 'package:collection/collection.dart';
+
+part 'playlist.dart';
+part 'media.dart';
+
 // A marker interface for accepting both [Media] and [Playlist] in [Player.open].
 
 /// {@template playable}
@@ -14,7 +19,7 @@
 /// A playable item in [Player]. It can be [Media] or [Playlist].
 ///
 /// {@endtemplate}
-abstract class Playable {
+sealed class Playable {
   /// {@macro playable}
   const Playable();
 }

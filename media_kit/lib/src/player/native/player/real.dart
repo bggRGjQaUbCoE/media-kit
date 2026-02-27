@@ -25,9 +25,7 @@ import 'package:media_kit/src/player/native/utils/android_helper.dart';
 
 import 'package:media_kit/src/models/track.dart';
 import 'package:media_kit/src/models/playable.dart';
-import 'package:media_kit/src/models/playlist.dart';
 import 'package:media_kit/src/models/player_log.dart';
-import 'package:media_kit/src/models/media/media.dart';
 import 'package:media_kit/src/models/audio_device.dart';
 import 'package:media_kit/src/models/audio_params.dart';
 import 'package:media_kit/src/models/video_params.dart';
@@ -120,19 +118,15 @@ class NativePlayer extends PlatformPlayer {
       throwIfDisposed();
 
       final int index;
-      final List<Media> playlist = <Media>[];
-      if (playable is Media) {
-        index = 0;
-        playlist.add(playable);
-      } else if (playable is Playlist) {
-        index = playable.index;
-        playlist.addAll(playable.medias);
-      } else {
-        index = -1;
+      current.clear();
+      switch (playable) {
+        case Media():
+          index = 0;
+          current.add(playable);
+        case Playlist():
+          index = playable.index;
+          current.addAll(playable.medias);
       }
-
-      // Keep these [Media] objects in memory.
-      current = playlist;
 
       // NOTE: Handled as part of [stop] logic.
       // final commands = [
@@ -161,18 +155,8 @@ class NativePlayer extends PlatformPlayer {
       // isShuffleEnabled = false;
       // isPlayingStateChangeAllowed = false;
 
-      for (int i = 0; i < playlist.length; i++) {
-        if (playlist[i].extras case final extras?) {
-          await command([
-            'loadfile',
-            playlist[i].uri,
-            'append',
-            if (apiVersion >= 0x20003) '-1',
-            extras.entries.map((e) => '${e.key}=${e.value}').join(','),
-          ]);
-        } else {
-          await command(['loadfile', playlist[i].uri, 'append']);
-        }
+      for (int i = 0; i < current.length; i++) {
+        _add(current[i]);
       }
 
       // If [play] is `true`, then exit paused state.
@@ -390,6 +374,20 @@ class NativePlayer extends PlatformPlayer {
     }
   }
 
+  Future<void> _add(Media media) {
+    if (media.extras case final extras?) {
+      return command([
+        'loadfile',
+        media.uri,
+        'append',
+        if (apiVersion >= 0x20003) '-1',
+        extras.entries.map((e) => '${e.key}=${e.value}').join(','),
+      ]);
+    } else {
+      return command(['loadfile', media.uri, 'append']);
+    }
+  }
+
   /// Appends a [Media] to the [Player]'s playlist.
   @override
   Future<void> add(Media media, {bool synchronized = true}) {
@@ -401,7 +399,7 @@ class NativePlayer extends PlatformPlayer {
       current.add(media);
       // ---------------------------------------------
 
-      return command(['loadfile', media.uri, 'append']);
+      return _add(media);
     }
 
     if (synchronized) {
@@ -426,10 +424,10 @@ class NativePlayer extends PlatformPlayer {
       // In this situation, the playlist doesn't seem to be updated, so we manually update it.
       if (state.playlist.index == index &&
           state.playlist.medias.length - 1 == index &&
-          [
-            PlaylistMode.none,
-            PlaylistMode.single,
-          ].contains(state.playlistMode)) {
+          switch (state.playlistMode) {
+            PlaylistMode.none || PlaylistMode.single => true,
+            PlaylistMode.loop => false,
+          }) {
         // Allow playOrPause /w state.completed code-path to play the playlist again.
         state
           ..completed = true
@@ -467,10 +465,10 @@ class NativePlayer extends PlatformPlayer {
       throwIfDisposed();
 
       // Do nothing if currently present at the first or last index & playlist mode is [PlaylistMode.none] or [PlaylistMode.single].
-      if ([
-            PlaylistMode.none,
-            PlaylistMode.single,
-          ].contains(state.playlistMode) &&
+      if (switch (state.playlistMode) {
+            PlaylistMode.none || PlaylistMode.single => true,
+            PlaylistMode.loop => false,
+          } &&
           state.playlist.index == state.playlist.medias.length - 1) {
         return;
       }
@@ -493,10 +491,10 @@ class NativePlayer extends PlatformPlayer {
       throwIfDisposed();
 
       // Do nothing if currently present at the first or last index & playlist mode is [PlaylistMode.none] or [PlaylistMode.single].
-      if (const [
-            PlaylistMode.none,
-            PlaylistMode.single,
-          ].contains(state.playlistMode) &&
+      if (switch (state.playlistMode) {
+            PlaylistMode.none || PlaylistMode.single => true,
+            PlaylistMode.loop => false,
+          } &&
           state.playlist.index == 0) {
         return;
       }
@@ -1784,7 +1782,7 @@ class NativePlayer extends PlatformPlayer {
     final immediate = mpv.mpv_set_property_async(
       ctx,
       requestNumber,
-      namePtr.cast(),
+      namePtr,
       format,
       data,
     );
@@ -1822,8 +1820,7 @@ class NativePlayer extends PlatformPlayer {
   Future<void> _setPropertyString(String name, String value) async {
     final string = value.toNativeUtf8();
     // It wants char**
-    final ptr = calloc<Pointer<Void>>(1)
-      ..value = Pointer.fromAddress(string.address);
+    final ptr = calloc<Pointer<Void>>(1)..value = string.cast();
     await _setProperty(
       name,
       generated.mpv_format.MPV_FORMAT_STRING,
@@ -1894,7 +1891,7 @@ class NativePlayer extends PlatformPlayer {
   bool isBufferingStateChangeAllowed = true;
 
   /// Current loaded [Media] queue.
-  List<Media> current = <Media>[];
+  final List<Media> current = <Media>[];
 
   /// The methods which must execute synchronously before playback of a source can begin.
   final List<FutureOr<void> Function()> onLoadHooks = [];
@@ -1909,45 +1906,84 @@ class NativePlayer extends PlatformPlayer {
   @visibleForTesting
   static bool test = false;
 
-  void setMediaHeader(Map<String, String> headers) =>
-      setHeader(headers, mpv, ctx);
+  void setMediaHeader({
+    String? userAgent,
+    String? referer,
+    Map<String, String>? headers,
+  }) => setHeader(
+    mpv,
+    ctx,
+    headers: headers,
+    userAgent: userAgent,
+    referer: referer,
+  );
 
-  static void setHeader(
-    Map<String, String> headers,
+  static void setPropertyString(
     generated.MPV mpv,
     Pointer<generated.mpv_handle> ctx,
+    String name,
+    String value,
   ) {
-    final property = 'http-header-fields'.toNativeUtf8();
-    // Allocate & fill the [mpv_node] with the headers.
-    final value = calloc<generated.mpv_node>();
-    final valRef = value.ref
-      ..format = generated.mpv_format.MPV_FORMAT_NODE_ARRAY;
-    valRef.u.list = calloc<generated.mpv_node_list>();
-    final valList = valRef.u.list.ref
-      ..num = headers.length
-      ..values = calloc<generated.mpv_node>(headers.length);
-
-    int i = 0;
-    for (var e in headers.entries) {
-      valList.values[i++]
-        ..format = generated.mpv_format.MPV_FORMAT_STRING
-        ..u.string = '${e.key}: ${e.value}'.toNativeUtf8();
-    }
+    final string = value.toNativeUtf8();
+    final ptr = calloc<Pointer<Void>>(1)..value = string.cast();
+    final namePtr = name.toNativeUtf8();
     mpv.mpv_set_property(
       ctx,
-      property,
-      generated.mpv_format.MPV_FORMAT_NODE,
-      value.cast(),
+      namePtr,
+      generated.mpv_format.MPV_FORMAT_STRING,
+      ptr.cast(),
     );
-    // Free the allocated memory.
-    calloc.free(property);
-    for (int i = 0; i < valList.num; i++) {
-      calloc.free(valList.values[i].u.string);
+    calloc.free(namePtr);
+    calloc.free(ptr);
+    calloc.free(string);
+  }
+
+  static void setHeader(
+    generated.MPV mpv,
+    Pointer<generated.mpv_handle> ctx, {
+    String? userAgent,
+    String? referer,
+    Map<String, String>? headers,
+  }) {
+    if (userAgent != null) setPropertyString(mpv, ctx, 'user-agent', userAgent);
+    if (referer != null) setPropertyString(mpv, ctx, 'referrer', referer);
+    if (headers != null) {
+      assert(
+        !(headers.containsKey('user-agent') ||
+            headers.containsKey('User-Agent')),
+      );
+      final property = 'http-header-fields'.toNativeUtf8();
+      // Allocate & fill the [mpv_node] with the headers.
+      final value = calloc<generated.mpv_node>();
+      final valRef = value.ref
+        ..format = generated.mpv_format.MPV_FORMAT_NODE_ARRAY;
+      valRef.u.list = calloc<generated.mpv_node_list>();
+      final valList = valRef.u.list.ref
+        ..num = headers.length
+        ..values = calloc<generated.mpv_node>(headers.length);
+
+      int i = 0;
+      for (var e in headers.entries) {
+        valList.values[i++]
+          ..format = generated.mpv_format.MPV_FORMAT_STRING
+          ..u.string = '${e.key}: ${e.value}'.toNativeUtf8();
+      }
+      mpv.mpv_set_property(
+        ctx,
+        property,
+        generated.mpv_format.MPV_FORMAT_NODE,
+        value.cast(),
+      );
+      // Free the allocated memory.
+      calloc.free(property);
+      for (int i = 0; i < valList.num; i++) {
+        calloc.free(valList.values[i].u.string);
+      }
+      calloc
+        ..free(valList.values)
+        ..free(valRef.u.list)
+        ..free(value);
     }
-    calloc
-      ..free(valList.values)
-      ..free(valRef.u.list)
-      ..free(value);
   }
 
   void setOption(String opt, String value) {

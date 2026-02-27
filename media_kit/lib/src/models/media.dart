@@ -4,7 +4,7 @@
 /// All rights reserved.
 /// Use of this source code is governed by MIT license that can be found in the LICENSE file.
 // ignore_for_file: library_private_types_in_public_api
-import 'package:media_kit/src/models/playable.dart';
+part of 'playable.dart';
 
 /// {@template media}
 ///

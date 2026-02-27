@@ -2,13 +2,12 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:media_kit/src/models/playable.dart';
 import 'package:path/path.dart' show join;
 import 'package:test/test.dart';
 import 'package:collection/collection.dart';
 
 import 'package:media_kit/src/models/track.dart';
-import 'package:media_kit/src/models/playlist.dart';
-import 'package:media_kit/src/models/media/media.dart';
 import 'package:media_kit/src/models/audio_device.dart';
 import 'package:media_kit/src/models/audio_params.dart';
 import 'package:media_kit/src/models/video_params.dart';

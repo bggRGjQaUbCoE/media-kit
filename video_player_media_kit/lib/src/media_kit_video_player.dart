@@ -107,7 +107,7 @@ class MediaKitVideoPlayer extends VideoPlayerPlatform {
         break;
     }
 
-    player.setMediaHeader(httpHeaders);
+    player.setMediaHeader(headers: httpHeaders);
     await player.open(Media(resource), play: false);
 
     return textureId;
