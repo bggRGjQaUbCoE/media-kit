@@ -50,4 +50,33 @@ ffigen:
   headers:
     entry-points:
       - headers/client.h
-  dart-bool: true
+  type-map:
+    native-types:
+      char:
+        lib: ffi
+        c-type: Uint8
+        dart-type: int
+  exclude-all-by-default: true
+  enums:
+    include:
+      - 'mpv_.*'
+    as-int:
+      exclude: []
+  functions:
+    include:
+      - 'mpv_.*'
+    leaf:
+      include:
+        - 'mpv_client_api_version'
+  structs:
+    include:
+      - 'mpv_.*'
+  unions:
+    include:
+      - 'mpv_.*'
+  globals:
+    include:
+      - 'mpv_.*'
+  macros:
+    include:
+      - 'mpv_.*'
